@@ -5,12 +5,12 @@
  * All monetary values are in GBP (£).
  */
 
-export interface WorkflowAnswer {
+type WorkflowAnswer = {
   fieldKey: string;
   value: string | number;
-}
+};
 
-export interface PricingRuleData {
+type PricingRuleData = {
   id: string;
   ruleType: string; // per_unit | tiered | flat | multiplier | conditional
   fieldKey: string;
@@ -20,56 +20,56 @@ export interface PricingRuleData {
   multiplier: number | null;
   condition: string | null; // JSON string e.g. {"field":"material","value":"timber"}
   description: string | null;
-}
+};
 
-export interface PricingVariableData {
+type PricingVariableData = {
   key: string;
   value: number;
-}
+};
 
-export interface PriceModifier {
+type PriceModifier = {
   label: string;
   amount: number;
   type: "add" | "multiply";
-}
+};
 
-export interface PriceBreakdown {
+type PriceBreakdown = {
   basePrice: number;
   modifiers: PriceModifier[];
   wasteCost: number;
   subtotal: number;
   depositAmount: number;
   total: number;
-}
+};
 
-function getAnswerValue(
+const getAnswerValue = (
   answers: WorkflowAnswer[],
   fieldKey: string
-): string | number | undefined {
+): string | number | undefined => {
   const answer = answers.find((a) => a.fieldKey === fieldKey);
   return answer?.value;
-}
+};
 
-function parseNumeric(val: string | number | undefined): number {
+const parseNumeric = (val: string | number | undefined): number => {
   if (val === undefined || val === "") return 0;
   const n = typeof val === "number" ? val : parseFloat(val);
   return isNaN(n) ? 0 : n;
-}
+};
 
-function getGlobalVar(
+const getGlobalVar = (
   variables: PricingVariableData[],
   key: string,
   fallback: number = 0
-): number {
+): number => {
   const v = variables.find((v) => v.key === key);
   return v?.value ?? fallback;
-}
+};
 
-export function calculatePrice(
+const calculatePrice = (
   answers: WorkflowAnswer[],
   rules: PricingRuleData[],
   globalVariables: PricingVariableData[]
-): PriceBreakdown {
+): PriceBreakdown => {
   let basePrice = 0;
   const modifiers: PriceModifier[] = [];
   let totalMultiplier = 1;
@@ -189,4 +189,13 @@ export function calculatePrice(
     depositAmount: Math.round(depositAmount * 100) / 100,
     total: Math.round(total * 100) / 100,
   };
-}
+};
+
+export { calculatePrice };
+export type {
+  WorkflowAnswer,
+  PricingRuleData,
+  PricingVariableData,
+  PriceModifier,
+  PriceBreakdown,
+};

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { verifySession } from "@/lib/auth";
+import { verifySession } from "@/lib/auth/auth";
 import AdminShell from "@/components/admin/AdminShell";
 import "./admin.css";
 
@@ -12,11 +12,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminLayout({
-  children,
-}: {
+type AdminLayoutProps = {
   children: React.ReactNode;
-}) {
+};
+
+const AdminLayout = async ({ children }: AdminLayoutProps) => {
   const session = await verifySession();
 
   if (!session.authenticated || !session.admin) {
@@ -28,4 +28,6 @@ export default async function AdminLayout({
       {children}
     </AdminShell>
   );
-}
+};
+
+export default AdminLayout;

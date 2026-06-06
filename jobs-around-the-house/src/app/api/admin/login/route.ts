@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { validateCredentials, createSession } from "@/lib/auth";
+import { validateCredentials, createSession } from "@/lib/auth/auth";
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
   try {
     const { email, password } = await request.json();
 
@@ -34,4 +34,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+};

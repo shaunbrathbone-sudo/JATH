@@ -5,7 +5,7 @@
 
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import prisma from "./prisma";
+import prisma from "../prisma";
 import crypto from "crypto";
 
 const SESSION_COOKIE = "admin_session";
@@ -14,15 +14,15 @@ const SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
 // Simple token: base64(adminId:timestamp:signature)
 const SECRET = process.env.ADMIN_SESSION_SECRET || "dev-secret-change-me-in-production";
 
-function sign(data: string): string {
+const sign = (data: string): string => {
   return crypto
     .createHmac("sha256", SECRET)
     .update(data)
     .digest("hex")
     .slice(0, 16);
-}
+};
 
-export async function createSession(adminId: string): Promise<void> {
+const createSession = async (adminId: string): Promise<void> => {
   const timestamp = Date.now().toString();
   const payload = `${adminId}:${timestamp}`;
   const signature = sign(payload);
@@ -36,13 +36,15 @@ export async function createSession(adminId: string): Promise<void> {
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
-}
+};
 
-export async function verifySession(): Promise<{
+type VerifySessionResult = {
   authenticated: boolean;
   adminId?: string;
   admin?: { id: string; email: string; name: string; role: string };
-}> {
+};
+
+const verifySession = async (): Promise<VerifySessionResult> => {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE)?.value;
@@ -74,17 +76,24 @@ export async function verifySession(): Promise<{
   } catch {
     return { authenticated: false };
   }
-}
+};
 
-export async function destroySession(): Promise<void> {
+const destroySession = async (): Promise<void> => {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
-}
+};
 
-export async function validateCredentials(
+type ValidateCredentialsResult = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+} | null;
+
+const validateCredentials = async (
   email: string,
   password: string
-): Promise<{ id: string; email: string; name: string; role: string } | null> {
+): Promise<ValidateCredentialsResult> => {
   const admin = await prisma.adminUser.findUnique({
     where: { email },
   });
@@ -100,4 +109,7 @@ export async function validateCredentials(
     name: admin.name,
     role: admin.role,
   };
-}
+};
+
+export { createSession, verifySession, destroySession, validateCredentials };
+export type { VerifySessionResult, ValidateCredentialsResult };

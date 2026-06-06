@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { calculatePrice, type WorkflowAnswer, type PricingRuleData, type PricingVariableData } from "@/lib/pricing";
+import { calculatePrice, type WorkflowAnswer, type PricingRuleData, type PricingVariableData } from "@/lib/utils/pricing";
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
   try {
     const body = await request.json();
     const { productSlug, answers } = body as {
@@ -54,4 +54,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+};
