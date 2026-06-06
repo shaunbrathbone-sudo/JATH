@@ -1,0 +1,335 @@
+// Prisma schema for Jobs Around The House
+// Using SQLite for development, PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// Service Groups (top-level grouping)
+// ============================================
+model ServiceGroup {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  icon        String?    // SVG icon identifier
+  imageUrl    String?    @map("image_url")
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  categories Category[]
+
+  @@map("service_groups")
+}
+
+// ============================================
+// Service Categories
+// ============================================
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  icon        String?   // SVG icon identifier
+  imageUrl    String?   @map("image_url")
+  groupId     String?   @map("group_id")
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  group      ServiceGroup? @relation(fields: [groupId], references: [id])
+  products   Product[]
+  heroImages HeroImage[]
+
+  @@map("categories")
+}
+
+// ============================================
+// Hero Carousel Images
+// ============================================
+model HeroImage {
+  id         String   @id @default(uuid())
+  categoryId String?  @map("category_id")
+  productId  String?  @map("product_id")
+  imageUrl   String   @map("image_url")
+  filename   String   // Original filename
+  isActive   Boolean  @default(false) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("hero_images")
+}
+
+// ============================================
+// Service Products
+// ============================================
+model Product {
+  id               String    @id @default(uuid())
+  categoryId       String    @map("category_id")
+  name             String
+  slug             String    @unique
+  description      String?
+  shortDescription String?   @map("short_description")
+  imageUrl         String?   @map("image_url")
+  pricingType      String    @default("workflow") @map("pricing_type") // fixed | hourly | workflow
+  basePrice        Float?    @map("base_price")
+  hourlyRate       Float?    @map("hourly_rate")
+  minHours         Int?      @map("min_hours")
+  maxHours         Int?      @map("max_hours")
+  isActive         Boolean   @default(true) @map("is_active")
+  sortOrder        Int       @default(0) @map("sort_order")
+  allowMultiple    Boolean   @default(true) @map("allow_multiple") // Can add multiple (e.g., 2 patios)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  workflows    Workflow[]
+  sourceLinks  ProductLink[] @relation("SourceProduct")
+  targetLinks  ProductLink[] @relation("LinkedProduct")
+  bookingItems BookingItem[]
+  heroImages   HeroImage[]
+
+  @@map("products")
+}
+
+// ============================================
+// Product Links (addons, alternatives)
+// ============================================
+model ProductLink {
+  id              String  @id @default(uuid())
+  sourceProductId String  @map("source_product_id")
+  linkedProductId String  @map("linked_product_id")
+  linkType        String  @default("addon") @map("link_type") // addon | alternative | bundle
+  displayText     String? @map("display_text")
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  sourceProduct Product @relation("SourceProduct", fields: [sourceProductId], references: [id])
+  linkedProduct Product @relation("LinkedProduct", fields: [linkedProductId], references: [id])
+
+  @@map("product_links")
+}
+
+// ============================================
+// Workflows (per product)
+// ============================================
+model Workflow {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product      Product        @relation(fields: [productId], references: [id])
+  steps        WorkflowStep[]
+  pricingRules PricingRule[]
+
+  @@map("workflows")
+}
+
+// ============================================
+// Workflow Steps
+// ============================================
+model WorkflowStep {
+  id              String  @id @default(uuid())
+  workflowId      String  @map("workflow_id")
+  label           String
+  fieldType       String  @map("field_type") // number | select | dimensions | boolean | text | photo_upload | access
+  fieldKey        String  @map("field_key")
+  helpText        String? @map("help_text")
+  unit            String? // m² | m | items | hours
+  validationRules String? @map("validation_rules") // JSON string
+  sortOrder       Int     @default(0) @map("sort_order")
+  isRequired      Boolean @default(true) @map("is_required")
+  maxPhotos       Int?    @map("max_photos") // For photo_upload type
+  showIf          String? @map("show_if") // Conditional: JSON e.g. {"field":"has_base","value":"true"}
+
+  workflow Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  options  StepOption[]
+
+  @@map("workflow_steps")
+}
+
+// ============================================
+// Step Options (for select, access types)
+// ============================================
+model StepOption {
+  id            String @id @default(uuid())
+  stepId        String @map("step_id")
+  label         String
+  value         String
+  description   String? // Help text for the option
+  priceModifier Float? @map("price_modifier") // Flat amount to add/subtract
+  multiplier    Float? // Multiplier (e.g., 1.15 for 15% increase)
+  sortOrder     Int    @default(0) @map("sort_order")
+
+  step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("step_options")
+}
+
+// ============================================
+// Pricing Rules
+// ============================================
+model PricingRule {
+  id          String  @id @default(uuid())
+  workflowId  String  @map("workflow_id")
+  ruleType    String  @map("rule_type") // per_unit | tiered | flat | multiplier | conditional
+  fieldKey    String  @map("field_key") // Which workflow field this rule applies to
+  rate        Float?  // Price per unit
+  minValue    Float?  @map("min_value") // Minimum charge
+  maxValue    Float?  @map("max_value")
+  multiplier  Float?  // For multiplier type rules
+  condition   String? // JSON condition e.g. {"field":"material","value":"timber"}
+  description String?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+}
+
+// ============================================
+// Global Pricing Variables
+// ============================================
+model PricingVariable {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  value       Float
+  unit        String?  // £ | % | multiplier
+  category    String?  // waste | labour | travel
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("pricing_variables")
+}
+
+// ============================================
+// Customers
+// ============================================
+model Customer {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  phone        String?
+  addressLine1 String?   @map("address_line_1")
+  addressLine2 String?   @map("address_line_2")
+  city         String?
+  postcode     String?
+  hasAccount   Boolean   @default(false) @map("has_account")
+  passwordHash String?   @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  bookings Booking[]
+
+  @@map("customers")
+}
+
+// ============================================
+// Bookings
+// ============================================
+model Booking {
+  id              String   @id @default(uuid())
+  customerId      String   @map("customer_id")
+  status          String   @default("pending") // pending | confirmed | in_progress | completed | cancelled
+  preferredDate   DateTime? @map("preferred_date")
+  preferredTime   String?  @map("preferred_time") // e.g., "09:00-12:00"
+  subtotal        Float    @default(0)
+  wasteCost       Float    @default(0) @map("waste_cost")
+  accessSurcharge Float    @default(0) @map("access_surcharge")
+  total           Float    @default(0)
+  depositAmount   Float    @default(0) @map("deposit_amount")
+  remainingAmount Float    @default(0) @map("remaining_amount")
+  stripePaymentId String?  @map("stripe_payment_id")
+  paymentStatus   String   @default("unpaid") @map("payment_status") // unpaid | deposit_paid | fully_paid | refunded | partial_refund
+  notes           String?
+  customerNotes   String?  @map("customer_notes")
+  cancellationReason String? @map("cancellation_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  customer Customer      @relation(fields: [customerId], references: [id])
+  items    BookingItem[]
+
+  @@map("bookings")
+}
+
+// ============================================
+// Booking Items (individual services in a booking)
+// ============================================
+model BookingItem {
+  id              String @id @default(uuid())
+  bookingId       String @map("booking_id")
+  productId       String @map("product_id")
+  calculatedPrice Float  @map("calculated_price")
+  wasteCost       Float  @default(0) @map("waste_cost")
+  accessMultiplier Float @default(1.0) @map("access_multiplier")
+  quantity        Int    @default(1)
+  itemLabel       String? @map("item_label") // e.g., "Patio 1", "Patio 2"
+
+  booking  Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  product  Product             @relation(fields: [productId], references: [id])
+  configs  BookingItemConfig[]
+  photos   BookingItemPhoto[]
+
+  @@map("booking_items")
+}
+
+// ============================================
+// Booking Item Config (workflow answers)
+// ============================================
+model BookingItemConfig {
+  id         String @id @default(uuid())
+  itemId     String @map("item_id")
+  fieldKey   String @map("field_key")
+  fieldValue String @map("field_value")
+
+  item BookingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("booking_item_configs")
+}
+
+// ============================================
+// Booking Item Photos
+// ============================================
+model BookingItemPhoto {
+  id          String   @id @default(uuid())
+  itemId      String   @map("item_id")
+  fileUrl     String   @map("file_url")
+  fileName    String   @map("file_name")
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  item BookingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("booking_item_photos")
+}
+
+// ============================================
+// Admin Users
+// ============================================
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         String   @default("admin") // admin | super_admin
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
