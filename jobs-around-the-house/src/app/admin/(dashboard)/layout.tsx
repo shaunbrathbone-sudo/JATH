@@ -5,29 +5,25 @@ import AdminShell from "@/components/admin/AdminShell";
 import "./admin.css";
 
 export const metadata: Metadata = {
-  title: {
-    default: "Admin Dashboard",
-    template: "%s | Admin — Jobs Around The House",
-  },
-  robots: { index: false, follow: false },
+    title: {
+        default: "Admin Dashboard",
+        template: "%s | Admin — Jobs Around The House",
+    },
+    robots: { index: false, follow: false },
 };
 
 type AdminLayoutProps = {
-  children: React.ReactNode;
+    children: React.ReactNode;
 };
 
 const AdminLayout = async ({ children }: AdminLayoutProps) => {
-  const session = await verifySession();
+    const session = await verifySession();
 
-  if (!session.authenticated || !session.admin) {
-    redirect("/admin/login");
-  }
+    if (!session.authenticated || !session.admin) {
+        redirect("/admin/login");
+    }
 
-  return (
-    <AdminShell admin={session.admin}>
-      {children}
-    </AdminShell>
-  );
+    return <AdminShell admin={session.admin}>{children}</AdminShell>;
 };
 
 export default AdminLayout;

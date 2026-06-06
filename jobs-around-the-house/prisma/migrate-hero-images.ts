@@ -10,34 +10,34 @@ const adapter = new PrismaBetterSqlite3({ url: "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const heroDir = path.join(process.cwd(), "public", "hero");
-  
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
+    const heroDir = path.join(process.cwd(), "public", "hero");
 
-  for (const cat of categories) {
-    // Check if image file exists
-    const pngPath = path.join(heroDir, `${cat.slug}.png`);
-    if (fs.existsSync(pngPath)) {
-      await prisma.heroImage.create({
-        data: {
-          categoryId: cat.id,
-          imageUrl: `/hero/${cat.slug}.png`,
-          filename: `${cat.slug}.png`,
-          isActive: true,
-        },
-      });
-      console.log(`  ✓ ${cat.name} → /hero/${cat.slug}.png (active)`);
-    } else {
-      console.log(`  ✗ ${cat.name} — no image found`);
+    const categories = await prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+    });
+
+    for (const cat of categories) {
+        // Check if image file exists
+        const pngPath = path.join(heroDir, `${cat.slug}.png`);
+        if (fs.existsSync(pngPath)) {
+            await prisma.heroImage.create({
+                data: {
+                    categoryId: cat.id,
+                    imageUrl: `/hero/${cat.slug}.png`,
+                    filename: `${cat.slug}.png`,
+                    isActive: true,
+                },
+            });
+            console.log(`  ✓ ${cat.name} → /hero/${cat.slug}.png (active)`);
+        } else {
+            console.log(`  ✗ ${cat.name} — no image found`);
+        }
     }
-  }
 
-  console.log("\n✅ Migration complete!");
+    console.log("\n✅ Migration complete!");
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());

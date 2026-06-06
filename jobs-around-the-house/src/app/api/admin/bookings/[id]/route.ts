@@ -3,29 +3,29 @@ import type { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    const { status, paymentStatus } = body;
+    try {
+        const { id } = await params;
+        const body = await request.json();
+        const { status, paymentStatus } = body;
 
-    const updateData: Record<string, string> = {};
-    if (status) updateData.status = status;
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+        const updateData: Record<string, string> = {};
+        if (status) updateData.status = status;
+        if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
-    const booking = await prisma.booking.update({
-      where: { id },
-      data: updateData,
-    });
+        const booking = await prisma.booking.update({
+            where: { id },
+            data: updateData,
+        });
 
-    return NextResponse.json(booking);
-  } catch (error) {
-    console.error("Failed to update booking:", error);
-    return NextResponse.json(
-      { error: "Failed to update booking" },
-      { status: 500 }
-    );
-  }
+        return NextResponse.json(booking);
+    } catch (error) {
+        console.error("Failed to update booking:", error);
+        return NextResponse.json(
+            { error: "Failed to update booking" },
+            { status: 500 },
+        );
+    }
 }

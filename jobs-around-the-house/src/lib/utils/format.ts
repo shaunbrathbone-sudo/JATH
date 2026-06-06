@@ -40,7 +40,9 @@ const formatPricePerUnit = (amount: number, unit: string): string => {
 /**
  * Calculate a 50% deposit amount
  */
-const calculateDeposit = (total: number): {
+const calculateDeposit = (
+    total: number,
+): {
     deposit: number;
     remaining: number;
 } => {

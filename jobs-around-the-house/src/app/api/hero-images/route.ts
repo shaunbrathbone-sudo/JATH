@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
-  const categories = await prisma.category.findMany({
-    where: { isActive: true, heroImageUrl: { not: null } },
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      heroImageUrl: true,
-    },
-  });
+    const categories = await prisma.category.findMany({
+        where: { isActive: true, imageUrl: { not: null } },
+        orderBy: { sortOrder: "asc" },
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            imageUrl: true,
+        },
+    });
 
-  return NextResponse.json(categories);
+    return NextResponse.json(categories);
 }
