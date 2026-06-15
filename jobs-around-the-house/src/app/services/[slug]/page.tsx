@@ -13,33 +13,29 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { slug } = await params;
 
-    // Check if it is a service group
-    const group = await prisma.serviceGroup.findUnique({
-        where: { slug },
-        select: { name: true, description: true },
+    // Check if it is a parent category (group)
+    const group = await prisma.category.findFirst({
+        where: { slug, parentId: null },
+        select: { name: true },
     });
 
     if (group) {
         return {
             title: `${group.name} | Jobs Around The House`,
-            description:
-                group.description ||
-                `Professional ${group.name} in Leicester. Upfront pricing and instant online booking.`,
+            description: `Professional ${group.name} in Leicester. Upfront pricing and instant online booking.`,
         };
     }
 
-    // Check if it is a category
+    // Check if it is a subcategory
     const category = await prisma.category.findUnique({
         where: { slug },
-        select: { name: true, description: true },
+        select: { name: true },
     });
 
     if (category) {
         return {
             title: `${category.name} | Jobs Around The House`,
-            description:
-                category.description ||
-                `Book professional ${category.name} services in Leicester. Upfront pricing and instant online booking.`,
+            description: `Book professional ${category.name} services in Leicester. Upfront pricing and instant online booking.`,
         };
     }
 
@@ -51,18 +47,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ServiceSlugPage({ params }: Props) {
     const { slug } = await params;
 
-    // Try to find as a Service Group first
-    const group = await prisma.serviceGroup.findUnique({
-        where: { slug },
+    // Try to find as a Parent Category (Group) first
+    const group = await prisma.category.findFirst({
+        where: { slug, parentId: null },
         include: {
-            categories: {
+            children: {
                 where: { isActive: true },
-                orderBy: { sortOrder: "asc" },
                 include: {
                     products: {
                         where: { isActive: true },
-                        orderBy: { sortOrder: "asc" },
-                        select: { name: true, slug: true },
+                        select: { title: true, slug: true },
                     },
                     heroImages: {
                         where: { isActive: true },
@@ -75,11 +69,7 @@ export default async function ServiceSlugPage({ params }: Props) {
     });
 
     if (group) {
-        // Find first available category imageUrl or active hero image to use as background
-        const bgImage =
-            group.categories.find((c) => c.imageUrl)?.imageUrl ||
-            group.categories.find((c) => c.heroImages.length > 0)?.heroImages[0]
-                ?.imageUrl;
+        const bgImage = group.children.find((c) => c.heroImages.length > 0)?.heroImages[0]?.imageUrl;
 
         return (
             <>
@@ -99,7 +89,7 @@ export default async function ServiceSlugPage({ params }: Props) {
                             <nav
                                 className="breadcrumb"
                                 aria-label="Breadcrumb"
-                            >
+                             >
                                 <Link
                                     href="/"
                                     className="breadcrumb__link"
@@ -134,11 +124,6 @@ export default async function ServiceSlugPage({ params }: Props) {
                             >
                                 {group.name}
                             </h1>
-                            {group.description && (
-                                <p className="page-header__subtitle">
-                                    {group.description}
-                                </p>
-                            )}
                         </div>
                     </section>
 
@@ -156,7 +141,7 @@ export default async function ServiceSlugPage({ params }: Props) {
                             </h2>
 
                             <div className="services-grid">
-                                {group.categories.map((cat) => (
+                                {group.children.map((cat) => (
                                     <Link
                                         key={cat.slug}
                                         href={`/services/${cat.slug}`}
@@ -166,9 +151,6 @@ export default async function ServiceSlugPage({ params }: Props) {
                                         <h3 className="service-card__title">
                                             {cat.name}
                                         </h3>
-                                        <p className="service-card__description">
-                                            {cat.description}
-                                        </p>
                                         {cat.products.length > 0 && (
                                             <ul className="service-card__checklist">
                                                 {cat.products.map((p) => (
@@ -189,7 +171,7 @@ export default async function ServiceSlugPage({ params }: Props) {
                                                         >
                                                             <polyline points="20 6 9 17 4 12" />
                                                         </svg>
-                                                        {p.name}
+                                                        {p.title}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -260,7 +242,7 @@ export default async function ServiceSlugPage({ params }: Props) {
     const category = await prisma.category.findUnique({
         where: { slug },
         include: {
-            group: true,
+            parent: true,
             heroImages: {
                 where: { isActive: true },
                 take: 1,
@@ -281,7 +263,7 @@ export default async function ServiceSlugPage({ params }: Props) {
     });
 
     if (category) {
-        const bgImage = category.imageUrl || category.heroImages[0]?.imageUrl;
+        const bgImage = category.heroImages[0]?.imageUrl;
 
         return (
             <>
@@ -320,7 +302,7 @@ export default async function ServiceSlugPage({ params }: Props) {
                                 >
                                     Services
                                 </Link>
-                                {category.group && (
+                                {category.parent && (
                                     <>
                                         <span
                                             className="breadcrumb__separator"
@@ -329,10 +311,10 @@ export default async function ServiceSlugPage({ params }: Props) {
                                             /
                                         </span>
                                         <Link
-                                            href={`/services/${category.group.slug}`}
+                                            href={`/services/${category.parent.slug}`}
                                             className="breadcrumb__link"
                                         >
-                                            {category.group.name}
+                                            {category.parent.name}
                                         </Link>
                                     </>
                                 )}
@@ -352,11 +334,6 @@ export default async function ServiceSlugPage({ params }: Props) {
                             >
                                 {category.name}
                             </h1>
-                            {category.description && (
-                                <p className="page-header__subtitle">
-                                    {category.description}
-                                </p>
-                            )}
                         </div>
                     </section>
 
@@ -376,21 +353,11 @@ export default async function ServiceSlugPage({ params }: Props) {
                             <div className="category-services-grid">
                                 {category.products.map((product) => {
                                     let priceText = "Instant Online Quote";
-                                    if (
-                                        product.pricingType === "fixed" &&
-                                        product.basePrice
-                                    ) {
-                                        priceText = `From £${product.basePrice}`;
-                                    } else if (
-                                        product.pricingType === "hourly" &&
-                                        product.hourlyRate
-                                    ) {
-                                        priceText = `£${product.hourlyRate}/hr`;
+                                    if (product.basePrice) {
+                                        priceText = `From £${product.basePrice.toFixed(2)}`;
                                     }
 
-                                    const displayImage =
-                                        product.imageUrl ||
-                                        product.heroImages?.[0]?.imageUrl;
+                                    const displayImage = product.heroImages?.[0]?.imageUrl;
 
                                     return (
                                         <div
@@ -401,14 +368,14 @@ export default async function ServiceSlugPage({ params }: Props) {
                                                 <div className="category-service-card__image-wrap">
                                                     <img
                                                         src={displayImage}
-                                                        alt={product.name}
+                                                        alt={product.title}
                                                         className="category-service-card__image"
                                                     />
                                                 </div>
                                             )}
                                             <div className="category-service-card__body">
                                                 <h3 className="category-service-card__title">
-                                                    {product.name}
+                                                    {product.title}
                                                 </h3>
                                                 {product.description && (
                                                     <p className="category-service-card__desc">
@@ -462,8 +429,8 @@ export default async function ServiceSlugPage({ params }: Props) {
                             <div className="category-back-btn-wrap">
                                 <Link
                                     href={
-                                        category.group ?
-                                            `/services/${category.group.slug}`
+                                        category.parent ?
+                                            `/services/${category.parent.slug}`
                                         :   "/services"
                                     }
                                     className="btn btn--outline btn--md"
@@ -488,8 +455,8 @@ export default async function ServiceSlugPage({ params }: Props) {
                                         <polyline points="12 19 5 12 12 5" />
                                     </svg>
                                     Back to{" "}
-                                    {category.group ?
-                                        category.group.name
+                                    {category.parent ?
+                                        category.parent.name
                                     :   "All Services"}
                                 </Link>
                             </div>

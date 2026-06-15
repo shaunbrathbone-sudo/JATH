@@ -9,7 +9,7 @@ export default async function AdminServicesPage() {
                 orderBy: { sortOrder: "asc" },
                 include: {
                     _count: {
-                        select: { workflows: true },
+                        select: { workflowSteps: true },
                     },
                 },
             },
@@ -56,12 +56,12 @@ export default async function AdminServicesPage() {
                                 >
                                     <div className="admin-product-item__info">
                                         <span className="admin-product-item__name">
-                                            {product.name}
+                                            {product.title}
                                         </span>
                                         <span className="admin-product-item__meta">
-                                            {product.pricingType} ·{" "}
-                                            {product._count.workflows}{" "}
-                                            workflow(s)
+                                            {product.productType} ·{" "}
+                                            {product._count.workflowSteps}{" "}
+                                            workflow step(s)
                                         </span>
                                     </div>
                                     <div
@@ -70,6 +70,18 @@ export default async function AdminServicesPage() {
                                             gap: "0.5rem",
                                         }}
                                     >
+                                        <Link
+                                            href={`/admin/services/${product.id}`}
+                                            className="admin-action-link"
+                                        >
+                                            Edit Details
+                                        </Link>
+                                        <Link
+                                            href={`/admin/services/${product.id}/workflow`}
+                                            className="admin-action-link"
+                                        >
+                                            Edit Workflow
+                                        </Link>
                                         <Link
                                             href={`/admin/services/${product.id}/images`}
                                             className="admin-action-link"

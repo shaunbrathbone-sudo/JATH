@@ -10,15 +10,19 @@ export default async function AdminBookingDetailPage({ params }: Props) {
     const { id } = await params;
 
     const booking = await prisma.booking.findUnique({
-        where: { id },
+        where: { id: parseInt(id) },
         include: {
             customer: true,
             items: {
                 include: {
-                    product: { select: { name: true, slug: true } },
-                    configs: true,
+                    product: { select: { title: true, slug: true } },
                 },
             },
+            workflowResponses: {
+                include: {
+                    step: true
+                }
+            }
         },
     });
 
@@ -49,7 +53,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                         ← Back to Bookings
                     </Link>
                     <h1 className="admin-page__title">
-                        Booking {booking.id.slice(0, 8).toUpperCase()}
+                        Booking INV-{booking.id.toString().padStart(6, "0")}
                     </h1>
                 </div>
             </div>
@@ -61,7 +65,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                     <div className="admin-card">
                         <h2 className="admin-card__title">Status</h2>
                         <BookingStatusUpdater
-                            bookingId={booking.id}
+                            bookingId={String(booking.id)}
                             currentStatus={booking.status}
                             currentPaymentStatus={booking.paymentStatus}
                         />
@@ -74,36 +78,81 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                             <div
                                 key={item.id}
                                 className="admin-booking-item"
+                                style={{ paddingBottom: "1rem", borderBottom: "1px solid #f1f5f9", marginBottom: "1rem" }}
                             >
                                 <div className="admin-booking-item__header">
-                                    <h3>{item.product.name}</h3>
+                                    <h3>{item.product?.title || "Service Item"}</h3>
                                     <span className="admin-amount">
-                                        £{item.calculatedPrice.toFixed(2)}
+                                        £{(item.grossUnitPrice * item.quantity).toFixed(2)}
                                     </span>
                                 </div>
-                                {item.configs.length > 0 && (
-                                    <div className="admin-booking-item__configs">
-                                        {item.configs.map((config) => (
-                                            <div
-                                                key={config.id}
-                                                className="admin-config"
-                                            >
-                                                <span className="admin-config__key">
-                                                    {config.fieldKey.replace(
-                                                        /_/g,
-                                                        " ",
-                                                    )}
-                                                </span>
-                                                <span className="admin-config__value">
-                                                    {config.fieldValue}
-                                                </span>
-                                            </div>
-                                        ))}
+                                <div style={{ fontSize: "0.85rem", color: "#64748b", marginTop: "0.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                                    <span>SKU: {item.sku}</span>
+                                    <span>•</span>
+                                    <span>Qty: {item.quantity}</span>
+                                    <span>•</span>
+                                    <span>Gross Unit: £{item.grossUnitPrice.toFixed(2)}</span>
+                                    <span>•</span>
+                                    <span>VAT Rate: {item.vatRateApplied.toFixed(1)}%</span>
+                                    <span>•</span>
+                                    <span>VAT Amount: £{item.vatAmountTotal.toFixed(2)}</span>
+                                </div>
+                                {item.legalWaiverInjected && (
+                                    <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "#b91c1c", backgroundColor: "#fef2f2", padding: "0.5rem", borderRadius: "0.25rem", borderLeft: "3px solid #ef4444" }}>
+                                        <strong>Liability Waiver Applied:</strong> {item.legalWaiverInjected}
                                     </div>
                                 )}
                             </div>
                         ))}
                     </div>
+
+                    {/* Workflow Responses & Photo Downloads */}
+                    {booking.workflowResponses && booking.workflowResponses.length > 0 && (
+                        <div className="admin-card">
+                            <h2 className="admin-card__title">Workflow & Step Answers</h2>
+                            <div className="admin-detail-list">
+                                {booking.workflowResponses.map((resp) => {
+                                    const answer = resp.customerTextResponse || (resp.uploadedPhotoUrl ? "Photo Uploaded" : "No response");
+                                    return (
+                                        <div key={resp.id} className="admin-detail-list__item" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.25rem", padding: "0.75rem 0", borderBottom: "1px solid #f1f5f9" }}>
+                                            <span className="admin-detail-list__label" style={{ fontWeight: "600", fontSize: "0.85rem", color: "#475569" }}>
+                                                {resp.step.stepName}
+                                            </span>
+                                            {resp.uploadedPhotoUrl ? (
+                                                <div style={{ marginTop: "0.5rem" }}>
+                                                    <a
+                                                        href={resp.uploadedPhotoUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", color: "#1e3a8a", textDecoration: "underline", fontWeight: "500", fontSize: "0.85rem" }}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                            <polyline points="7 10 12 15 17 10"/>
+                                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                                        </svg>
+                                                        Download Uploaded Photo
+                                                    </a>
+                                                    <div style={{ marginTop: "0.5rem" }}>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img
+                                                            src={resp.uploadedPhotoUrl}
+                                                            alt={resp.step.stepName}
+                                                            style={{ maxWidth: "240px", maxHeight: "180px", borderRadius: "0.375rem", border: "1px solid #cbd5e1" }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="admin-detail-list__value" style={{ fontSize: "0.95rem", color: "#1e293b" }}>
+                                                    {answer}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Totals */}
                     <div className="admin-card">

@@ -69,25 +69,40 @@ const HomePage = async () => {
 
     const slides = categories.flatMap((c) =>
         c.heroImages.map((img) => ({
-            id: img.id,
+            id: String(img.id),
             name: c.name,
             slug: c.slug,
             heroImageUrl: img.imageUrl,
         })),
     );
 
-    // Fetch service groups with their categories
-    const serviceGroups = await prisma.serviceGroup.findMany({
-        where: { isActive: true },
+    // Fetch top-level categories (acting as service groups) with their subcategories
+    const categoriesDb = await prisma.category.findMany({
+        where: { parentId: null, isActive: true },
         orderBy: { sortOrder: "asc" },
-        include: {
-            categories: {
+        select: {
+            slug: true,
+            name: true,
+            description: true,
+            children: {
                 where: { isActive: true },
                 orderBy: { sortOrder: "asc" },
                 select: { name: true, slug: true },
             },
         },
     });
+
+    const serviceGroups = categoriesDb.map((g) => ({
+        slug: g.slug,
+        name: g.name,
+        description: g.description,
+        icon:
+            g.slug === "garden-buildings" ? "tree"
+            : g.slug === "jet-washing" ? "spray"
+            : g.slug === "tech-installation" ? "monitor"
+            : "home",
+        categories: g.children,
+    }));
 
     return (
         <>

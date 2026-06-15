@@ -13,7 +13,6 @@ export async function PATCH(
         const {
             name,
             description,
-            icon,
             groupId,
             sortOrder,
             isActive,
@@ -30,14 +29,17 @@ export async function PATCH(
         }
         if (description !== undefined)
             data.description = description?.trim() || null;
-        if (icon !== undefined) data.icon = icon?.trim() || null;
-        if (groupId !== undefined) data.groupId = groupId || null;
-        if (sortOrder !== undefined) data.sortOrder = sortOrder;
+        if (groupId !== undefined) {
+            data.parentId = groupId ? parseInt(groupId) : null;
+        }
+        if (sortOrder !== undefined) {
+            data.sortOrder = Number(sortOrder) || 0;
+        }
         if (isActive !== undefined) data.isActive = Boolean(isActive);
-        if (imageUrl !== undefined) data.imageUrl = imageUrl || null;
+        if (imageUrl !== undefined) data.imageUrl = imageUrl;
 
         const category = await prisma.category.update({
-            where: { id },
+            where: { id: parseInt(id) || 0 },
             data,
         });
 
@@ -58,9 +60,10 @@ export async function DELETE(
 ) {
     try {
         const { id } = await params;
+        const parsedId = parseInt(id) || 0;
 
         const productCount = await prisma.product.count({
-            where: { categoryId: id },
+            where: { categoryId: parsedId },
         });
         if (productCount > 0) {
             return NextResponse.json(
@@ -72,8 +75,8 @@ export async function DELETE(
         }
 
         // Delete hero images first (cascade)
-        await prisma.heroImage.deleteMany({ where: { categoryId: id } });
-        await prisma.category.delete({ where: { id } });
+        await prisma.heroImage.deleteMany({ where: { categoryId: parsedId } });
+        await prisma.category.delete({ where: { id: parsedId } });
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Failed to delete category:", error);

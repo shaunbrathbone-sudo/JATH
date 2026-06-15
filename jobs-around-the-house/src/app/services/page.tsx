@@ -12,22 +12,20 @@ export const metadata: Metadata = {
 };
 
 export default async function ServicesPage() {
-    const groups = await prisma.serviceGroup.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
+    const rootCategories = await prisma.category.findMany({
+        where: { parentId: null, isActive: true },
+        orderBy: { id: "asc" },
         include: {
-            categories: {
+            children: {
                 where: { isActive: true },
-                orderBy: { sortOrder: "asc" },
                 include: {
                     products: {
                         where: { isActive: true },
-                        orderBy: { sortOrder: "asc" },
                         select: {
-                            name: true,
+                            title: true,
                             slug: true,
                             basePrice: true,
-                            pricingType: true,
+                            productType: true,
                         },
                     },
                 },
@@ -58,7 +56,7 @@ export default async function ServicesPage() {
                     </div>
                 </section>
 
-                {groups.map((group) => (
+                {rootCategories.map((group) => (
                     <section
                         key={group.slug}
                         id={group.slug}
@@ -73,15 +71,10 @@ export default async function ServicesPage() {
                                 >
                                     {group.name}
                                 </h2>
-                                {group.description && (
-                                    <p className="section__subtitle">
-                                        {group.description}
-                                    </p>
-                                )}
                             </div>
 
                             <div className="services-grid">
-                                {group.categories.map((cat) => (
+                                {group.children.map((cat) => (
                                     <Link
                                         key={cat.slug}
                                         href={`/services/${cat.slug}`}
@@ -91,9 +84,6 @@ export default async function ServicesPage() {
                                         <h3 className="service-card__title">
                                             {cat.name}
                                         </h3>
-                                        <p className="service-card__description">
-                                            {cat.description}
-                                        </p>
                                         {cat.products.length > 0 && (
                                             <ul className="service-card__checklist">
                                                 {cat.products.map((p) => (
@@ -114,7 +104,7 @@ export default async function ServicesPage() {
                                                         >
                                                             <polyline points="20 6 9 17 4 12" />
                                                         </svg>
-                                                        {p.name}
+                                                        {p.title}
                                                     </li>
                                                 ))}
                                             </ul>

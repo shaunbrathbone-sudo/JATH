@@ -11,9 +11,8 @@ export async function PATCH(
         const { id: imageId } = await params;
         const { isActive } = await request.json();
 
-        // Update the selected image's active status directly
         const updatedImage = await prisma.heroImage.update({
-            where: { id: imageId },
+            where: { id: parseInt(imageId) || 0 },
             data: { isActive: !!isActive },
         });
 

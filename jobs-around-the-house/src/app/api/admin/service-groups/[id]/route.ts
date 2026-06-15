@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-// PATCH update service group
+// PATCH update service group (Category where parentId: null)
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> },
@@ -10,7 +10,7 @@ export async function PATCH(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { name, description, icon, sortOrder, isActive } = body;
+        const { name, description, sortOrder, isActive } = body;
 
         const data: Record<string, unknown> = {};
         if (name !== undefined) {
@@ -22,12 +22,11 @@ export async function PATCH(
         }
         if (description !== undefined)
             data.description = description?.trim() || null;
-        if (icon !== undefined) data.icon = icon?.trim() || null;
-        if (sortOrder !== undefined) data.sortOrder = sortOrder;
+        if (sortOrder !== undefined) data.sortOrder = Number(sortOrder) || 0;
         if (isActive !== undefined) data.isActive = Boolean(isActive);
 
-        const group = await prisma.serviceGroup.update({
-            where: { id },
+        const group = await prisma.category.update({
+            where: { id: parseInt(id) || 0 },
             data,
         });
 
@@ -41,15 +40,16 @@ export async function PATCH(
     }
 }
 
-// DELETE service group (only if no categories assigned)
+// DELETE service group (Category with parentId: null)
 export async function DELETE(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         const { id } = await params;
+        const parsedId = parseInt(id) || 0;
 
-        const count = await prisma.category.count({ where: { groupId: id } });
+        const count = await prisma.category.count({ where: { parentId: parsedId } });
         if (count > 0) {
             return NextResponse.json(
                 {
@@ -59,7 +59,7 @@ export async function DELETE(
             );
         }
 
-        await prisma.serviceGroup.delete({ where: { id } });
+        await prisma.category.delete({ where: { id: parsedId } });
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Failed to delete service group:", error);

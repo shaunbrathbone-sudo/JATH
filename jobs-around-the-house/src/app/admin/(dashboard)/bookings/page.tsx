@@ -23,7 +23,7 @@ export default async function AdminBookingsPage() {
             },
             items: {
                 include: {
-                    product: { select: { name: true } },
+                    product: { select: { title: true } },
                 },
             },
         },
@@ -105,9 +105,7 @@ export default async function AdminBookingsPage() {
                                 <tr key={booking.id}>
                                     <td>
                                         <code className="admin-ref">
-                                            {booking.id
-                                                .slice(0, 8)
-                                                .toUpperCase()}
+                                            INV-{booking.id.toString().padStart(6, "0")}
                                         </code>
                                     </td>
                                     <td>
@@ -123,7 +121,7 @@ export default async function AdminBookingsPage() {
                                     </td>
                                     <td>
                                         {booking.items
-                                            .map((item) => item.product.name)
+                                            .map((item) => item.product?.title || "Service Item")
                                             .join(", ")}
                                     </td>
                                     <td className="admin-amount">

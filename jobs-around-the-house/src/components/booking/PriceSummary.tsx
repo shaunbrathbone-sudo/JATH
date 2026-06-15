@@ -8,9 +8,14 @@ type PriceSummaryProps = {
     price: PriceBreakdown | null;
     loading: boolean;
     productName: string;
+    loyaltyDiscount?: number;
 };
 
-const PriceSummary = ({ price, loading, productName }: PriceSummaryProps) => {
+const PriceSummary = ({ price, loading, productName, loyaltyDiscount = 0 }: PriceSummaryProps) => {
+    const adjustedTotal = price ? Math.max(0, price.total - loyaltyDiscount) : 0;
+    const adjustedDeposit = price ? Math.ceil(adjustedTotal * 0.5 * 100) / 100 : 0;
+    const adjustedRemaining = price ? Math.round((adjustedTotal - adjustedDeposit) * 100) / 100 : 0;
+
     return (
         <div
             className="price-summary"
@@ -78,13 +83,20 @@ const PriceSummary = ({ price, loading, productName }: PriceSummaryProps) => {
                                 <span>£{price.wasteCost.toFixed(2)}</span>
                             </div>
                         )}
+
+                        {loyaltyDiscount > 0 && (
+                            <div className="price-summary__line" style={{ color: "#16a34a", fontWeight: "600" }}>
+                                <span>Loyalty Points Discount</span>
+                                <span>−£{loyaltyDiscount.toFixed(2)}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="price-summary__total">
                         <div className="price-summary__total-row">
                             <span>Total</span>
                             <span className="price-summary__total-amount">
-                                £{price.total.toFixed(2)}
+                                £{adjustedTotal.toFixed(2)}
                             </span>
                         </div>
                     </div>
@@ -99,12 +111,12 @@ const PriceSummary = ({ price, loading, productName }: PriceSummaryProps) => {
                                 50% Deposit to Book
                             </span>
                             <span className="price-summary__deposit-amount">
-                                £{price.depositAmount.toFixed(2)}
+                                £{adjustedDeposit.toFixed(2)}
                             </span>
                         </div>
                         <p className="price-summary__deposit-note">
                             Remaining £
-                            {(price.total - price.depositAmount).toFixed(2)} on
+                            {adjustedRemaining.toFixed(2)} on
                             completion
                         </p>
                     </div>

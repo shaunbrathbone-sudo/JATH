@@ -16,7 +16,7 @@ export async function PATCH(
         if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
         const booking = await prisma.booking.update({
-            where: { id },
+            where: { id: parseInt(id) || 0 },
             data: updateData,
         });
 

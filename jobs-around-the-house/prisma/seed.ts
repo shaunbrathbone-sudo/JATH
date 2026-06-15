@@ -1,12 +1,3 @@
-/**
- * Database Seed Script for Jobs Around The House
- *
- * Populates: categories, products, workflows, steps, options, pricing rules,
- * global pricing variables, and an admin user.
- *
- * Run with: npx prisma db seed
- */
-
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import bcrypt from "bcryptjs";
@@ -15,19 +6,17 @@ const adapter = new PrismaBetterSqlite3({ url: "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-    console.log("🌱 Seeding database...\n");
+    console.log("🌱 Seeding unified JATH database...\n");
 
     // --- Clear existing data (order matters for FK constraints) ---
-    await prisma.bookingItemPhoto.deleteMany();
-    await prisma.bookingItemConfig.deleteMany();
-    await prisma.bookingItem.deleteMany();
+    await prisma.heroImage.deleteMany();
+    await prisma.orderWorkflowResponse.deleteMany();
+    await prisma.orderItem.deleteMany();
     await prisma.booking.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.stepOption.deleteMany();
     await prisma.workflowStep.deleteMany();
-    await prisma.pricingRule.deleteMany();
-    await prisma.workflow.deleteMany();
-    await prisma.productLink.deleteMany();
+    await prisma.bundleComponent.deleteMany();
     await prisma.product.deleteMany();
     await prisma.category.deleteMany();
     await prisma.pricingVariable.deleteMany();
@@ -80,6 +69,22 @@ async function main() {
                 category: "labour",
                 description: "25% surcharge for weekend work",
             },
+            {
+                key: "loyalty_accrual_rate",
+                label: "Loyalty Accrual Rate",
+                value: 1,
+                unit: "points/£",
+                category: "loyalty",
+                description: "Points accrued per £1 spent",
+            },
+            {
+                key: "loyalty_redemption_rate",
+                label: "Loyalty Redemption Rate",
+                value: 0.01,
+                unit: "£/point",
+                category: "loyalty",
+                description: "Discount value in pounds per point redeemed (e.g. 0.01 = 1p)",
+            },
         ],
     });
     console.log("  ✓ Created pricing variables");
@@ -87,8 +92,7 @@ async function main() {
     // ========================================================
     // ADMIN USER
     // ========================================================
-    const adminEmail =
-        process.env.ADMIN_EMAIL || "admin@jobsaroundthehouse.co.uk";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@jobsaroundthehouse.co.uk";
     const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || "changeme123";
     const passwordHash = await bcrypt.hash(adminPassword, 12);
 
@@ -96,1466 +100,1094 @@ async function main() {
         data: {
             email: adminEmail,
             passwordHash,
-            name: "Admin",
+            name: "Admin User",
             role: "super_admin",
         },
     });
     console.log(`  ✓ Created admin user: ${adminEmail}`);
 
     // ========================================================
-    // CATEGORIES & PRODUCTS WITH WORKFLOWS
+    // SERVICE GROUPS (Top-Level Categories)
     // ========================================================
+    const groupCleaning = await prisma.category.create({
+        data: {
+            name: "Cleaning Services",
+            slug: "cleaning-services",
+            description: "Professional cleaning for driveways, patios, windows, gutters and outdoor surfaces.",
+            sortOrder: 1,
+        },
+    });
 
-    // --- 1. JET WASHING ---
+    const groupGarden = await prisma.category.create({
+        data: {
+            name: "Garden Services",
+            slug: "garden-services",
+            description: "Fencing, garden clearance, shed builds and outdoor maintenance to transform your garden.",
+            sortOrder: 2,
+        },
+    });
+
+    const groupHome = await prisma.category.create({
+        data: {
+            name: "Home Services",
+            slug: "home-services",
+            description: "Flat-pack assembly, picture hanging, shelving and general DIY around the house.",
+            sortOrder: 3,
+        },
+    });
+
+    const groupTech = await prisma.category.create({
+        data: {
+            name: "Tech Installation",
+            slug: "tech-installation-group",
+            description: "TV wall mounting, home networking, smart home devices and tech setup by professionals.",
+            sortOrder: 4,
+        },
+    });
+    console.log("  ✓ Created service groups");
+
+    // ========================================================
+    // CHILD CATEGORIES
+    // ========================================================
+    // 1. Cleaning Group
     const catJetWash = await prisma.category.create({
         data: {
             name: "Jet Washing",
             slug: "jet-washing",
-            description:
-                "Professional pressure washing for driveways, patios, decking and more.",
-            icon: "jet-washing",
+            description: "Professional pressure washing for driveways, patios, decking and more.",
+            parentId: groupCleaning.id,
             sortOrder: 1,
         },
     });
 
-    // Driveway Jet Wash
-    const prodDriveway = await prisma.product.create({
+    const catGuttering = await prisma.category.create({
         data: {
-            categoryId: catJetWash.id,
-            name: "Driveway Jet Wash",
-            slug: "driveway-jet-wash",
-            description:
-                "Professional pressure washing for driveways. We use commercial-grade equipment to restore your driveway to its original condition.",
-            shortDescription: "Restore your driveway to its original condition",
-            pricingType: "workflow",
-            sortOrder: 1,
-        },
-    });
-
-    const wfDriveway = await prisma.workflow.create({
-        data: {
-            productId: prodDriveway.id,
-            name: "Driveway Jet Wash Configuration",
-        },
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfDriveway.id,
-            label: "Driveway Area",
-            fieldType: "number",
-            fieldKey: "area_sqm",
-            helpText:
-                "Estimate the total area of your driveway in square metres. A typical single driveway is around 15-25m².",
-            unit: "m²",
-            validationRules: JSON.stringify({ min: 5, max: 200 }),
-            sortOrder: 1,
-        },
-    });
-
-    const stepDriveSurface = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfDriveway.id,
-            label: "Surface Type",
-            fieldType: "select",
-            fieldKey: "surface_type",
-            helpText: "What material is your driveway made from?",
+            name: "Guttering Services",
+            slug: "guttering",
+            description: "Gutter cleaning, washing, and minor repairs.",
+            parentId: groupCleaning.id,
             sortOrder: 2,
         },
     });
 
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepDriveSurface.id,
-                label: "Block Paving",
-                value: "block_paving",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepDriveSurface.id,
-                label: "Concrete",
-                value: "concrete",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepDriveSurface.id,
-                label: "Tarmac",
-                value: "tarmac",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepDriveSurface.id,
-                label: "Natural Stone",
-                value: "natural_stone",
-                description: "Flagstone, sandstone, etc.",
-                sortOrder: 4,
-            },
-        ],
-    });
-
-    const stepDriveAccess = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfDriveway.id,
-            label: "Access",
-            fieldType: "select",
-            fieldKey: "access",
-            helpText:
-                "How easy is it to access your driveway with our equipment?",
-            sortOrder: 3,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepDriveAccess.id,
-                label: "Easy — Direct access from road",
-                value: "easy",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepDriveAccess.id,
-                label: "Moderate — Through a gate or side passage",
-                value: "moderate",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepDriveAccess.id,
-                label: "Difficult — Narrow access, steps or obstacles",
-                value: "difficult",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfDriveway.id,
-                ruleType: "per_unit",
-                fieldKey: "area_sqm",
-                rate: 3.5,
-                description: "£3.50 per m²",
-            },
-            {
-                workflowId: wfDriveway.id,
-                ruleType: "conditional",
-                fieldKey: "surface_type",
-                condition: JSON.stringify({
-                    field: "surface_type",
-                    value: "natural_stone",
-                }),
-                multiplier: 1.2,
-                description: "Natural stone (+20%)",
-            },
-            {
-                workflowId: wfDriveway.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "moderate",
-                }),
-                multiplier: 1.1,
-                description: "Moderate access (+10%)",
-            },
-            {
-                workflowId: wfDriveway.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "difficult",
-                }),
-                multiplier: 1.2,
-                description: "Difficult access (+20%)",
-            },
-        ],
-    });
-
-    // Patio Jet Wash
-    const prodPatio = await prisma.product.create({
-        data: {
-            categoryId: catJetWash.id,
-            name: "Patio Jet Wash",
-            slug: "patio-jet-wash",
-            description:
-                "Professional patio cleaning to remove algae, moss, and dirt. We'll restore your patio to its original beauty.",
-            shortDescription: "Make your patio look brand new",
-            pricingType: "workflow",
-            sortOrder: 2,
-        },
-    });
-
-    const wfPatio = await prisma.workflow.create({
-        data: { productId: prodPatio.id, name: "Patio Jet Wash Configuration" },
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfPatio.id,
-            label: "Patio Area",
-            fieldType: "number",
-            fieldKey: "area_sqm",
-            helpText:
-                "Estimate the total patio area in square metres. A typical back patio is 10-20m².",
-            unit: "m²",
-            validationRules: JSON.stringify({ min: 3, max: 150 }),
-            sortOrder: 1,
-        },
-    });
-
-    const stepPatioAccess = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfPatio.id,
-            label: "Access",
-            fieldType: "select",
-            fieldKey: "access",
-            helpText: "How easy is it to access your patio?",
-            sortOrder: 2,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepPatioAccess.id,
-                label: "Easy — Through house or direct garden access",
-                value: "easy",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepPatioAccess.id,
-                label: "Moderate — Through a side gate",
-                value: "moderate",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepPatioAccess.id,
-                label: "Difficult — Narrow or restricted access",
-                value: "difficult",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfPatio.id,
-                ruleType: "per_unit",
-                fieldKey: "area_sqm",
-                rate: 4.0,
-                description: "£4.00 per m²",
-            },
-            {
-                workflowId: wfPatio.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "moderate",
-                }),
-                multiplier: 1.1,
-                description: "Moderate access (+10%)",
-            },
-            {
-                workflowId: wfPatio.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "difficult",
-                }),
-                multiplier: 1.2,
-                description: "Difficult access (+20%)",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Jet Washing category with 2 products");
-
-    // --- 2. SHED SERVICES ---
-    const catShed = await prisma.category.create({
-        data: {
-            name: "Shed Services",
-            slug: "shed-services",
-            description:
-                "From shed removal and disposal to building new sheds and summer houses.",
-            icon: "shed-services",
-            sortOrder: 2,
-        },
-    });
-
-    // Shed Removal
-    const prodShedRemoval = await prisma.product.create({
-        data: {
-            categoryId: catShed.id,
-            name: "Shed Removal & Disposal",
-            slug: "shed-removal",
-            description:
-                "We'll dismantle and remove your old shed, including responsible waste disposal. Base removal available as an add-on.",
-            shortDescription: "Out with the old — we handle everything",
-            pricingType: "workflow",
-            sortOrder: 1,
-        },
-    });
-
-    const wfShedRemoval = await prisma.workflow.create({
-        data: {
-            productId: prodShedRemoval.id,
-            name: "Shed Removal Configuration",
-        },
-    });
-
-    const stepShedSize = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfShedRemoval.id,
-            label: "Shed Size",
-            fieldType: "select",
-            fieldKey: "shed_size",
-            helpText: "Approximate size of the shed to be removed.",
-            sortOrder: 1,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepShedSize.id,
-                label: "Small (up to 6×4 ft)",
-                value: "small",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepShedSize.id,
-                label: "Medium (6×4 to 8×6 ft)",
-                value: "medium",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepShedSize.id,
-                label: "Large (8×6 to 10×8 ft)",
-                value: "large",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepShedSize.id,
-                label: "Extra Large (over 10×8 ft)",
-                value: "xlarge",
-                sortOrder: 4,
-            },
-        ],
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfShedRemoval.id,
-            label: "Remove Concrete Base?",
-            fieldType: "boolean",
-            fieldKey: "remove_base",
-            helpText:
-                "Do you want us to break up and remove the concrete base as well?",
-            sortOrder: 2,
-        },
-    });
-
-    const stepShedAccess = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfShedRemoval.id,
-            label: "Access",
-            fieldType: "select",
-            fieldKey: "access",
-            helpText: "How easy is it to access the shed location?",
-            sortOrder: 3,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepShedAccess.id,
-                label: "Easy — Direct access",
-                value: "easy",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepShedAccess.id,
-                label: "Moderate — Through gate",
-                value: "moderate",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepShedAccess.id,
-                label: "Difficult — Narrow or restricted",
-                value: "difficult",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "shed_size",
-                condition: JSON.stringify({
-                    field: "shed_size",
-                    value: "small",
-                }),
-                rate: 150,
-                description: "Small shed removal: £150",
-            },
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "shed_size",
-                condition: JSON.stringify({
-                    field: "shed_size",
-                    value: "medium",
-                }),
-                rate: 225,
-                description: "Medium shed removal: £225",
-            },
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "shed_size",
-                condition: JSON.stringify({
-                    field: "shed_size",
-                    value: "large",
-                }),
-                rate: 325,
-                description: "Large shed removal: £325",
-            },
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "shed_size",
-                condition: JSON.stringify({
-                    field: "shed_size",
-                    value: "xlarge",
-                }),
-                rate: 450,
-                description: "XL shed removal: £450",
-            },
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "remove_base",
-                condition: JSON.stringify({
-                    field: "remove_base",
-                    value: "true",
-                }),
-                rate: 120,
-                description: "Concrete base removal: +£120",
-            },
-            {
-                workflowId: wfShedRemoval.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "difficult",
-                }),
-                multiplier: 1.15,
-                description: "Difficult access (+15%)",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Shed Services category");
-
-    // --- 3. TECH INSTALLATION ---
-    const catTech = await prisma.category.create({
-        data: {
-            name: "Tech Installation",
-            slug: "tech-installation",
-            description:
-                "TV mounting, home network setup, smart home devices and more.",
-            icon: "tech-installation",
-            sortOrder: 3,
-        },
-    });
-
-    const prodTVMount = await prisma.product.create({
-        data: {
-            categoryId: catTech.id,
-            name: "TV Wall Mounting",
-            slug: "tv-wall-mount",
-            description:
-                "Professional TV wall mounting with optional cable hiding. We supply the bracket or use yours.",
-            shortDescription: "Securely mounted, cables hidden",
-            pricingType: "workflow",
-            sortOrder: 1,
-        },
-    });
-
-    const wfTV = await prisma.workflow.create({
-        data: { productId: prodTVMount.id, name: "TV Mount Configuration" },
-    });
-
-    const stepTVSize = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfTV.id,
-            label: "TV Size",
-            fieldType: "select",
-            fieldKey: "tv_size",
-            helpText: "What size is your TV?",
-            sortOrder: 1,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepTVSize.id,
-                label: 'Up to 32"',
-                value: "small",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepTVSize.id,
-                label: '33" – 55"',
-                value: "medium",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepTVSize.id,
-                label: '56" – 75"',
-                value: "large",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepTVSize.id,
-                label: 'Over 75"',
-                value: "xlarge",
-                sortOrder: 4,
-            },
-        ],
-    });
-
-    const stepWallType = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfTV.id,
-            label: "Wall Type",
-            fieldType: "select",
-            fieldKey: "wall_type",
-            helpText: "What type of wall are you mounting on?",
-            sortOrder: 2,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepWallType.id,
-                label: "Brick / Concrete",
-                value: "brick",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepWallType.id,
-                label: "Plasterboard (Stud Wall)",
-                value: "plasterboard",
-                description: "Requires special fixings",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepWallType.id,
-                label: "Not Sure",
-                value: "unsure",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfTV.id,
-            label: "Hide Cables?",
-            fieldType: "boolean",
-            fieldKey: "hide_cables",
-            helpText:
-                "We can route cables through the wall or use a cable cover for a clean finish.",
-            sortOrder: 3,
-        },
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "tv_size",
-                condition: JSON.stringify({ field: "tv_size", value: "small" }),
-                rate: 45,
-                description: "Small TV mount: £45",
-            },
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "tv_size",
-                condition: JSON.stringify({
-                    field: "tv_size",
-                    value: "medium",
-                }),
-                rate: 65,
-                description: "Medium TV mount: £65",
-            },
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "tv_size",
-                condition: JSON.stringify({ field: "tv_size", value: "large" }),
-                rate: 85,
-                description: "Large TV mount: £85",
-            },
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "tv_size",
-                condition: JSON.stringify({
-                    field: "tv_size",
-                    value: "xlarge",
-                }),
-                rate: 110,
-                description: "XL TV mount: £110",
-            },
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "wall_type",
-                condition: JSON.stringify({
-                    field: "wall_type",
-                    value: "plasterboard",
-                }),
-                rate: 20,
-                description: "Plasterboard fixings: +£20",
-            },
-            {
-                workflowId: wfTV.id,
-                ruleType: "conditional",
-                fieldKey: "hide_cables",
-                condition: JSON.stringify({
-                    field: "hide_cables",
-                    value: "true",
-                }),
-                rate: 25,
-                description: "Cable hiding: +£25",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Tech Installation category");
-
-    // --- 4. FENCING ---
+    // 2. Garden Group
     const catFencing = await prisma.category.create({
         data: {
             name: "Fencing",
             slug: "fencing",
-            description:
-                "New fence panels, fence repairs, gate fitting and post replacement.",
-            icon: "fencing",
-            sortOrder: 4,
-        },
-    });
-
-    const prodFence = await prisma.product.create({
-        data: {
-            categoryId: catFencing.id,
-            name: "Fence Panel Replacement",
-            slug: "fence-panel-replacement",
-            description:
-                "Replace damaged or worn fence panels. We supply standard 6ft panels or you can provide your own.",
-            shortDescription: "Replace old or damaged fence panels",
-            pricingType: "workflow",
+            description: "New fence panels, fence repairs, gate fitting and post replacement.",
+            parentId: groupGarden.id,
             sortOrder: 1,
         },
     });
 
-    const wfFence = await prisma.workflow.create({
+    const catGardenClearance = await prisma.category.create({
         data: {
-            productId: prodFence.id,
-            name: "Fence Panel Replacement Configuration",
-        },
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfFence.id,
-            label: "Number of Panels",
-            fieldType: "number",
-            fieldKey: "num_panels",
-            helpText: "How many fence panels need replacing?",
-            unit: "panels",
-            validationRules: JSON.stringify({ min: 1, max: 30 }),
-            sortOrder: 1,
-        },
-    });
-
-    const stepFenceType = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfFence.id,
-            label: "Panel Type",
-            fieldType: "select",
-            fieldKey: "panel_type",
-            helpText: "What type of fence panel?",
+            name: "Garden & Clearance",
+            slug: "garden-clearance",
+            description: "Garden tidying, clearance, hedge trimming and general outdoor maintenance.",
+            parentId: groupGarden.id,
             sortOrder: 2,
         },
     });
 
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepFenceType.id,
-                label: "Standard Lap Panel (6×6 ft)",
-                value: "standard_lap",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepFenceType.id,
-                label: "Heavy Duty Lap Panel",
-                value: "heavy_lap",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepFenceType.id,
-                label: "Closeboard (Featheredge)",
-                value: "closeboard",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.workflowStep.create({
+    const catShedServices = await prisma.category.create({
         data: {
-            workflowId: wfFence.id,
-            label: "Posts Need Replacing?",
-            fieldType: "boolean",
-            fieldKey: "replace_posts",
-            helpText: "Do any concrete or wooden posts need replacing too?",
+            name: "Shed Services",
+            slug: "shed-services",
+            description: "From shed removal and disposal to building new sheds and summer houses.",
+            parentId: groupGarden.id,
             sortOrder: 3,
         },
     });
 
-    const stepFenceAccess = await prisma.workflowStep.create({
+    const catInstallationServices = await prisma.category.create({
         data: {
-            workflowId: wfFence.id,
-            label: "Access",
-            fieldType: "select",
-            fieldKey: "access",
-            helpText: "How easy is it to access the fence line?",
+            name: "Installation & Services",
+            slug: "installation-services",
+            description: "Professional assembly, ground base preparation, and related handyman services.",
+            parentId: groupGarden.id,
             sortOrder: 4,
         },
     });
 
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepFenceAccess.id,
-                label: "Easy",
-                value: "easy",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepFenceAccess.id,
-                label: "Moderate",
-                value: "moderate",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepFenceAccess.id,
-                label: "Difficult",
-                value: "difficult",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfFence.id,
-                ruleType: "per_unit",
-                fieldKey: "num_panels",
-                rate: 65,
-                description: "£65 per panel (supplied & fitted)",
-            },
-            {
-                workflowId: wfFence.id,
-                ruleType: "conditional",
-                fieldKey: "panel_type",
-                condition: JSON.stringify({
-                    field: "panel_type",
-                    value: "heavy_lap",
-                }),
-                multiplier: 1.15,
-                description: "Heavy duty panels (+15%)",
-            },
-            {
-                workflowId: wfFence.id,
-                ruleType: "conditional",
-                fieldKey: "panel_type",
-                condition: JSON.stringify({
-                    field: "panel_type",
-                    value: "closeboard",
-                }),
-                multiplier: 1.35,
-                description: "Closeboard panels (+35%)",
-            },
-            {
-                workflowId: wfFence.id,
-                ruleType: "conditional",
-                fieldKey: "replace_posts",
-                condition: JSON.stringify({
-                    field: "replace_posts",
-                    value: "true",
-                }),
-                rate: 35,
-                description: "Post replacement per panel: +£35",
-            },
-            {
-                workflowId: wfFence.id,
-                ruleType: "conditional",
-                fieldKey: "access",
-                condition: JSON.stringify({
-                    field: "access",
-                    value: "difficult",
-                }),
-                multiplier: 1.15,
-                description: "Difficult access (+15%)",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Fencing category");
-
-    // --- 5. FLAT-PACK ASSEMBLY ---
+    // 3. Home Group
     const catFlatPack = await prisma.category.create({
         data: {
             name: "Flat-Pack Assembly",
             slug: "flat-pack-assembly",
             description: "Furniture assembly, shelving, wardrobes and more.",
-            icon: "flat-pack-assembly",
-            sortOrder: 5,
-        },
-    });
-
-    const prodFlatPack = await prisma.product.create({
-        data: {
-            categoryId: catFlatPack.id,
-            name: "Flat-Pack Assembly",
-            slug: "flat-pack-assembly",
-            description:
-                "We'll assemble your flat-pack furniture quickly and correctly. Wardrobes, desks, beds, shelving — you name it.",
-            shortDescription: "Built right, first time",
-            pricingType: "workflow",
+            parentId: groupHome.id,
             sortOrder: 1,
         },
     });
 
-    const wfFlatPack = await prisma.workflow.create({
+    const catPictureHanging = await prisma.category.create({
         data: {
-            productId: prodFlatPack.id,
-            name: "Flat-Pack Assembly Configuration",
+            name: "Picture & Mirror Hanging",
+            slug: "picture-hanging",
+            description: "Professional wall mounting for pictures, mirrors, shelves and wall art.",
+            parentId: groupHome.id,
+            sortOrder: 2,
         },
     });
 
-    const stepItemType = await prisma.workflowStep.create({
+    const catGeneralDiy = await prisma.category.create({
         data: {
-            workflowId: wfFlatPack.id,
-            label: "Item Type",
+            name: "General DIY",
+            slug: "general-diy",
+            description: "Odd jobs, repairs and those tasks you never get round to.",
+            parentId: groupHome.id,
+            sortOrder: 3,
+        },
+    });
+
+    // 4. Tech Group
+    const catTechInstallation = await prisma.category.create({
+        data: {
+            name: "Tech Installation",
+            slug: "tech-installation",
+            description: "TV mounting, home network setup, smart home devices and more.",
+            parentId: groupTech.id,
+            sortOrder: 1,
+        },
+    });
+    console.log("  ✓ Created child categories");
+
+    // ========================================================
+    // HERO IMAGES FOR THE CAROUSEL
+    // ========================================================
+    const heroImageSeedData = [
+        { cat: catJetWash, urls: ["/hero/jet-washing.png", "/hero/jw-patio.png", "/hero/jw-decking.png"] },
+        { cat: catGuttering, urls: ["/hero/guttering.png", "/hero/gutter-clean.png", "/hero/gutter-repair.png"] },
+        { cat: catFencing, urls: ["/hero/fencing.png", "/hero/fence-repair.png", "/hero/fence-gate.png"] },
+        { cat: catGardenClearance, urls: ["/hero/garden-clearance.png", "/hero/garden-waste.png", "/hero/garden-hedge.png"] },
+        { cat: catShedServices, urls: ["/hero/shed-services.png", "/hero/shed-build.png", "/hero/shed-base.png"] },
+        { cat: catFlatPack, urls: ["/hero/flat-pack-assembly.png", "/hero/flatpack-desk.png", "/hero/flatpack-bookshelf.png"] },
+        { cat: catPictureHanging, urls: ["/hero/picture-hanging.png", "/hero/picture-mirror.png", "/hero/picture-gallery.png"] },
+        { cat: catGeneralDiy, urls: ["/hero/general-diy.png", "/hero/diy-door.png", "/hero/diy-shelving.png"] },
+        { cat: catTechInstallation, urls: ["/hero/tech-installation.png", "/hero/tech-smart-home.png", "/hero/tech-soundbar.png"] },
+    ];
+
+    for (const data of heroImageSeedData) {
+        for (const url of data.urls) {
+            await prisma.heroImage.create({
+                data: {
+                    categoryId: data.cat.id,
+                    imageUrl: url,
+                    filename: url.split("/").pop() || "",
+                    isActive: true,
+                },
+            });
+        }
+    }
+    console.log("  ✓ Populated hero images for homepage carousel");
+
+    // ========================================================
+    // PRODUCTS: STANDALONE & SERVICE
+    // ========================================================
+    const prodStoneBase = await prisma.product.create({
+        data: {
+            categoryId: catInstallationServices.id,
+            sku: "Stone-Base-001",
+            slug: "stone-base-001",
+            title: "Stone Base Installation",
+            description: "Preparation of ground and installation of gravel/stone sub-base for sheds.",
+            basePrice: 250.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "standard",
+        },
+    });
+
+    const prodLabor = await prisma.product.create({
+        data: {
+            categoryId: catInstallationServices.id,
+            sku: "Labor-001",
+            slug: "labor-001",
+            title: "Standard Installation Labor",
+            description: "Shed assembly and building labor.",
+            basePrice: 150.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "standard",
+        },
+    });
+    console.log("  ✓ Created standalone/upsell products");
+
+    // ========================================================
+    // WORKFLOW PRODUCTS
+    // ========================================================
+
+    // --- 1. JET WASHING ---
+    const prodDriveway = await prisma.product.create({
+        data: {
+            categoryId: catJetWash.id,
+            sku: "JW-DRIVE-001",
+            slug: "driveway-jet-wash",
+            title: "Driveway Jet Wash",
+            description: "Professional pressure washing for driveways. We use commercial-grade equipment to restore your driveway to its original condition.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepDriveArea = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodDriveway.id,
+            stepName: "Step 1: Estimate Driveway Area",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "number",
+            fieldKey: "area_sqm",
+            helpText: "Estimate the total area of your driveway in square metres. A typical single driveway is around 15-25m².",
+            unit: "m²",
+            validationRules: JSON.stringify({ min: 5, max: 200 }),
+        },
+    });
+
+    await prisma.stepOption.create({
+        data: {
+            stepId: stepDriveArea.id,
+            label: "Driveway Jet Wash (per m²)",
+            value: "*",
+            priceModifier: 3.50,
+            optionValueFlag: "driveway_rate",
+        },
+    });
+
+    const stepDriveSurface = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodDriveway.id,
+            stepName: "Step 2: Surface Type",
+            sortOrder: 2,
+            isMandatory: true,
             fieldType: "select",
-            fieldKey: "item_type",
-            helpText: "What type of furniture needs assembling?",
-            sortOrder: 1,
+            fieldKey: "surface_type",
+            helpText: "What material is your driveway made from?",
         },
     });
 
     await prisma.stepOption.createMany({
         data: [
-            {
-                stepId: stepItemType.id,
-                label: "Small (Shelving, Side Table, TV Unit)",
-                value: "small",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepItemType.id,
-                label: "Medium (Desk, Bookcase, Chest of Drawers)",
-                value: "medium",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepItemType.id,
-                label: "Large (Wardrobe, Bed Frame)",
-                value: "large",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepItemType.id,
-                label: "Extra Large (PAX System, Fitted Wardrobe)",
-                value: "xlarge",
-                sortOrder: 4,
-            },
+            { stepId: stepDriveSurface.id, label: "Block Paving", value: "block_paving", priceModifier: 0, optionValueFlag: "block_paving" },
+            { stepId: stepDriveSurface.id, label: "Concrete", value: "concrete", priceModifier: 0, optionValueFlag: "concrete" },
+            { stepId: stepDriveSurface.id, label: "Tarmac", value: "tarmac", priceModifier: 0, optionValueFlag: "tarmac" },
+            { stepId: stepDriveSurface.id, label: "Natural Stone (+£50.00 surcharge)", value: "natural_stone", priceModifier: 50.00, optionValueFlag: "natural_stone" },
         ],
     });
 
-    await prisma.workflowStep.create({
+    const stepDriveAccess = await prisma.workflowStep.create({
         data: {
-            workflowId: wfFlatPack.id,
-            label: "Number of Items",
-            fieldType: "number",
-            fieldKey: "num_items",
-            helpText: "How many items need assembling?",
-            unit: "items",
-            validationRules: JSON.stringify({ min: 1, max: 10 }),
-            sortOrder: 2,
+            parentProductId: prodDriveway.id,
+            stepName: "Step 3: Access Options",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access your driveway with our equipment?",
         },
     });
 
-    await prisma.pricingRule.createMany({
+    await prisma.stepOption.createMany({
         data: [
-            {
-                workflowId: wfFlatPack.id,
-                ruleType: "conditional",
-                fieldKey: "item_type",
-                condition: JSON.stringify({
-                    field: "item_type",
-                    value: "small",
-                }),
-                rate: 35,
-                description: "Small item: £35",
-            },
-            {
-                workflowId: wfFlatPack.id,
-                ruleType: "conditional",
-                fieldKey: "item_type",
-                condition: JSON.stringify({
-                    field: "item_type",
-                    value: "medium",
-                }),
-                rate: 55,
-                description: "Medium item: £55",
-            },
-            {
-                workflowId: wfFlatPack.id,
-                ruleType: "conditional",
-                fieldKey: "item_type",
-                condition: JSON.stringify({
-                    field: "item_type",
-                    value: "large",
-                }),
-                rate: 85,
-                description: "Large item: £85",
-            },
-            {
-                workflowId: wfFlatPack.id,
-                ruleType: "conditional",
-                fieldKey: "item_type",
-                condition: JSON.stringify({
-                    field: "item_type",
-                    value: "xlarge",
-                }),
-                rate: 120,
-                description: "XL item: £120",
-            },
+            { stepId: stepDriveAccess.id, label: "Easy — Direct access from road", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepDriveAccess.id, label: "Moderate — Through a gate or side passage", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepDriveAccess.id, label: "Difficult — Narrow access, steps or obstacles (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
         ],
     });
 
-    console.log("  ✓ Created Flat-Pack Assembly category");
-
-    // --- 6. GARDEN & CLEARANCE ---
-    const catGarden = await prisma.category.create({
+    const prodPatio = await prisma.product.create({
         data: {
-            name: "Garden & Clearance",
-            slug: "garden-clearance",
-            description:
-                "Garden tidying, clearance, hedge trimming and general outdoor maintenance.",
-            icon: "garden-clearance",
-            sortOrder: 6,
+            categoryId: catJetWash.id,
+            sku: "JW-PATIO-001",
+            slug: "patio-jet-wash",
+            title: "Patio Jet Wash",
+            description: "Professional patio cleaning to remove algae, moss, and dirt. We'll restore your patio to its original beauty.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
         },
     });
 
-    const prodGarden = await prisma.product.create({
+    const stepPatioArea = await prisma.workflowStep.create({
         data: {
-            categoryId: catGarden.id,
-            name: "Garden Clearance",
-            slug: "garden-clearance",
-            description:
-                "General garden clearance and tidying. We'll clear overgrown areas, remove green waste, and get your garden back in shape.",
-            shortDescription: "Reclaim your outdoor space",
-            pricingType: "workflow",
+            parentProductId: prodPatio.id,
+            stepName: "Step 1: Estimate Patio Area",
             sortOrder: 1,
+            isMandatory: true,
+            fieldType: "number",
+            fieldKey: "area_sqm",
+            helpText: "Estimate the total patio area in square metres. A typical back patio is 10-20m².",
+            unit: "m²",
+            validationRules: JSON.stringify({ min: 3, max: 150 }),
         },
     });
 
-    const wfGarden = await prisma.workflow.create({
+    await prisma.stepOption.create({
         data: {
-            productId: prodGarden.id,
-            name: "Garden Clearance Configuration",
+            stepId: stepPatioArea.id,
+            label: "Patio Jet Wash (per m²)",
+            value: "*",
+            priceModifier: 4.00,
+            optionValueFlag: "patio_rate",
+        },
+    });
+
+    const stepPatioAccess = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodPatio.id,
+            stepName: "Step 2: Access Options",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access your patio?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepPatioAccess.id, label: "Easy — Through house or direct garden access", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepPatioAccess.id, label: "Moderate — Through a side gate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepPatioAccess.id, label: "Difficult — Narrow or restricted access (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // --- 2. GUTTERING ---
+    const prodGutter = await prisma.product.create({
+        data: {
+            categoryId: catGuttering.id,
+            sku: "GUT-CLEAN-001",
+            slug: "gutter-cleaning",
+            title: "Gutter Cleaning",
+            description: "Professional gutter cleaning to prevent blockages and water damage. We clear all debris and flush the system.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepGutterProp = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodGutter.id,
+            stepName: "Step 1: Property Type",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "property_type",
+            helpText: "What type of property?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepGutterProp.id, label: "Terraced House", value: "terraced", priceModifier: 65.00, optionValueFlag: "terraced" },
+            { stepId: stepGutterProp.id, label: "Semi-Detached", value: "semi", priceModifier: 85.00, optionValueFlag: "semi" },
+            { stepId: stepGutterProp.id, label: "Detached House", value: "detached", priceModifier: 120.00, optionValueFlag: "detached" },
+            { stepId: stepGutterProp.id, label: "Bungalow", value: "bungalow", priceModifier: 55.00, optionValueFlag: "bungalow" },
+        ],
+    });
+
+    const stepGutterStoreys = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodGutter.id,
+            stepName: "Step 2: Number of Storeys",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "storeys",
+            helpText: "How many storeys does your property have?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepGutterStoreys.id, label: "1 Storey (Bungalow)", value: "1", priceModifier: 0.00, optionValueFlag: "storeys_1" },
+            { stepId: stepGutterStoreys.id, label: "2 Storeys", value: "2", priceModifier: 0.00, optionValueFlag: "storeys_2" },
+            { stepId: stepGutterStoreys.id, label: "3 Storeys (+£40.00 surcharge)", value: "3", priceModifier: 40.00, optionValueFlag: "storeys_3" },
+        ],
+    });
+
+    const stepGutterAccess = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodGutter.id,
+            stepName: "Step 3: Access Options",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access the gutters?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepGutterAccess.id, label: "Easy", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepGutterAccess.id, label: "Moderate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepGutterAccess.id, label: "Difficult (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // --- 3. FENCING ---
+    const prodFence = await prisma.product.create({
+        data: {
+            categoryId: catFencing.id,
+            sku: "FEN-REP-001",
+            slug: "fence-panel-replacement",
+            title: "Fence Panel Replacement",
+            description: "Replace damaged or worn fence panels. We supply standard 6ft panels or you can provide your own.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepFencePanels = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFence.id,
+            stepName: "Step 1: Number of Panels",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "number",
+            fieldKey: "num_panels",
+            helpText: "How many fence panels need replacing?",
+            unit: "panels",
+            validationRules: JSON.stringify({ min: 1, max: 30 }),
+        },
+    });
+
+    await prisma.stepOption.create({
+        data: {
+            stepId: stepFencePanels.id,
+            label: "Fence Panel Supplied & Fitted (per panel)",
+            value: "*",
+            priceModifier: 65.00,
+            optionValueFlag: "fencing_panel_rate",
+        },
+    });
+
+    const stepFenceType = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFence.id,
+            stepName: "Step 2: Panel Type",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "panel_type",
+            helpText: "What type of fence panel?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepFenceType.id, label: "Standard Lap Panel (6x6 ft)", value: "standard_lap", priceModifier: 0.00, optionValueFlag: "lap_standard" },
+            { stepId: stepFenceType.id, label: "Heavy Duty Lap Panel (+£10.00 / panel)", value: "heavy_lap", priceModifier: 10.00, optionValueFlag: "lap_heavy" },
+            { stepId: stepFenceType.id, label: "Closeboard (Featheredge) (+£25.00 / panel)", value: "closeboard", priceModifier: 25.00, optionValueFlag: "closeboard" },
+        ],
+    });
+
+    const stepFencePosts = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFence.id,
+            stepName: "Step 3: Posts Need Replacing?",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "boolean",
+            fieldKey: "replace_posts",
+            helpText: "Do any concrete or wooden posts need replacing too?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepFencePosts.id, label: "Yes, replace posts (+£35.00 / panel)", value: "true", priceModifier: 35.00, optionValueFlag: "replace_posts_yes" },
+            { stepId: stepFencePosts.id, label: "No, keep existing posts", value: "false", priceModifier: 0.00, optionValueFlag: "replace_posts_no" },
+        ],
+    });
+
+    const stepFenceAccess = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFence.id,
+            stepName: "Step 4: Access Options",
+            sortOrder: 4,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access the fence line?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepFenceAccess.id, label: "Easy", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepFenceAccess.id, label: "Moderate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepFenceAccess.id, label: "Difficult (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // --- 4. GARDEN & CLEARANCE ---
+    const prodGardenClearance = await prisma.product.create({
+        data: {
+            categoryId: catGardenClearance.id,
+            sku: "GAR-CLEAN-001",
+            slug: "garden-clearance-product",
+            title: "Garden Clearance",
+            description: "General garden clearance and tidying. We'll clear overgrown areas, remove green waste, and get your garden back in shape.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
         },
     });
 
     const stepGardenSize = await prisma.workflowStep.create({
         data: {
-            workflowId: wfGarden.id,
-            label: "Garden Size",
+            parentProductId: prodGardenClearance.id,
+            stepName: "Step 1: Garden Size",
+            sortOrder: 1,
+            isMandatory: true,
             fieldType: "select",
             fieldKey: "garden_size",
             helpText: "How large is the area that needs clearing?",
-            sortOrder: 1,
         },
     });
 
     await prisma.stepOption.createMany({
         data: [
-            {
-                stepId: stepGardenSize.id,
-                label: "Small — Single flower bed or small area",
-                value: "small",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepGardenSize.id,
-                label: "Medium — Half a typical garden",
-                value: "medium",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepGardenSize.id,
-                label: "Large — Full garden clearance",
-                value: "large",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepGardenSize.id,
-                label: "Extra Large — Heavily overgrown",
-                value: "xlarge",
-                sortOrder: 4,
-            },
+            { stepId: stepGardenSize.id, label: "Small — Single flower bed or small area", value: "small", priceModifier: 75.00, optionValueFlag: "size_small" },
+            { stepId: stepGardenSize.id, label: "Medium — Half a typical garden", value: "medium", priceModifier: 140.00, optionValueFlag: "size_medium" },
+            { stepId: stepGardenSize.id, label: "Large — Full garden clearance", value: "large", priceModifier: 220.00, optionValueFlag: "size_large" },
+            { stepId: stepGardenSize.id, label: "Extra Large — Heavily overgrown", value: "xlarge", priceModifier: 350.00, optionValueFlag: "size_xl" },
         ],
     });
 
-    await prisma.workflowStep.create({
+    const stepGardenWaste = await prisma.workflowStep.create({
         data: {
-            workflowId: wfGarden.id,
-            label: "Include Waste Removal?",
+            parentProductId: prodGardenClearance.id,
+            stepName: "Step 2: Include Waste Removal?",
+            sortOrder: 2,
+            isMandatory: true,
             fieldType: "boolean",
             fieldKey: "waste_removal",
-            helpText:
-                "We can take all green waste away for responsible disposal.",
-            sortOrder: 2,
+            helpText: "We can take all green waste away for responsible disposal.",
         },
     });
 
-    await prisma.pricingRule.createMany({
+    await prisma.stepOption.createMany({
         data: [
-            {
-                workflowId: wfGarden.id,
-                ruleType: "conditional",
-                fieldKey: "garden_size",
-                condition: JSON.stringify({
-                    field: "garden_size",
-                    value: "small",
-                }),
-                rate: 75,
-                description: "Small garden: £75",
-            },
-            {
-                workflowId: wfGarden.id,
-                ruleType: "conditional",
-                fieldKey: "garden_size",
-                condition: JSON.stringify({
-                    field: "garden_size",
-                    value: "medium",
-                }),
-                rate: 140,
-                description: "Medium garden: £140",
-            },
-            {
-                workflowId: wfGarden.id,
-                ruleType: "conditional",
-                fieldKey: "garden_size",
-                condition: JSON.stringify({
-                    field: "garden_size",
-                    value: "large",
-                }),
-                rate: 220,
-                description: "Large garden: £220",
-            },
-            {
-                workflowId: wfGarden.id,
-                ruleType: "conditional",
-                fieldKey: "garden_size",
-                condition: JSON.stringify({
-                    field: "garden_size",
-                    value: "xlarge",
-                }),
-                rate: 350,
-                description: "XL garden: £350",
-            },
-            {
-                workflowId: wfGarden.id,
-                ruleType: "conditional",
-                fieldKey: "waste_removal",
-                condition: JSON.stringify({
-                    field: "waste_removal",
-                    value: "true",
-                }),
-                rate: 45,
-                description: "Waste removal: +£45",
-            },
+            { stepId: stepGardenWaste.id, label: "Yes, include green waste removal (+£45.00)", value: "true", priceModifier: 45.00, optionValueFlag: "waste_yes" },
+            { stepId: stepGardenWaste.id, label: "No, I will handle waste disposal", value: "false", priceModifier: 0.00, optionValueFlag: "waste_no" },
         ],
     });
 
-    console.log("  ✓ Created Garden & Clearance category");
-
-    // --- 7. PICTURE & MIRROR HANGING ---
-    const catPicture = await prisma.category.create({
+    const stepGardenAccess = await prisma.workflowStep.create({
         data: {
-            name: "Picture & Mirror Hanging",
-            slug: "picture-hanging",
-            description:
-                "Professional wall mounting for pictures, mirrors, shelves and wall art.",
-            icon: "picture-hanging",
-            sortOrder: 7,
+            parentProductId: prodGardenClearance.id,
+            stepName: "Step 3: Access Options",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access the garden clearance area?",
         },
     });
 
-    const prodPicture = await prisma.product.create({
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepGardenAccess.id, label: "Easy", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepGardenAccess.id, label: "Moderate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepGardenAccess.id, label: "Difficult (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // --- 5. SHED SERVICES ---
+    const prodShedRemoval = await prisma.product.create({
         data: {
-            categoryId: catPicture.id,
-            name: "Picture & Mirror Hanging",
-            slug: "picture-mirror-hanging",
-            description:
-                "Professional wall mounting for pictures, mirrors, and wall art. Perfectly level, securely fixed, no mess.",
-            shortDescription: "Perfectly level, securely fixed",
-            pricingType: "workflow",
+            categoryId: catShedServices.id,
+            sku: "SHED-REM-001",
+            slug: "shed-removal",
+            title: "Shed Removal & Disposal",
+            description: "We'll dismantle and remove your old shed, including responsible waste disposal. Base removal available as an add-on.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 50,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepRemovalSize = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShedRemoval.id,
+            stepName: "Step 1: Shed Size",
             sortOrder: 1,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "shed_size",
+            helpText: "Approximate size of the shed to be removed.",
         },
     });
 
-    const wfPicture = await prisma.workflow.create({
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepRemovalSize.id, label: "Small (up to 6x4 ft)", value: "small", priceModifier: 150.00, optionValueFlag: "size_small" },
+            { stepId: stepRemovalSize.id, label: "Medium (6x4 to 8x6 ft)", value: "medium", priceModifier: 225.00, optionValueFlag: "size_medium" },
+            { stepId: stepRemovalSize.id, label: "Large (8x6 to 10x8 ft)", value: "large", priceModifier: 325.00, optionValueFlag: "size_large" },
+            { stepId: stepRemovalSize.id, label: "Extra Large (over 10x8 ft)", value: "xlarge", priceModifier: 450.00, optionValueFlag: "size_xl" },
+        ],
+    });
+
+    const stepRemovalBase = await prisma.workflowStep.create({
         data: {
-            productId: prodPicture.id,
-            name: "Picture Hanging Configuration",
+            parentProductId: prodShedRemoval.id,
+            stepName: "Step 2: Remove Concrete Base?",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "boolean",
+            fieldKey: "remove_base",
+            helpText: "Do you want us to break up and remove the concrete base as well?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepRemovalBase.id, label: "Yes, break up and remove concrete base (+£120.00)", value: "true", priceModifier: 120.00, optionValueFlag: "remove_base_yes" },
+            { stepId: stepRemovalBase.id, label: "No, leave base intact", value: "false", priceModifier: 0.00, optionValueFlag: "remove_base_no" },
+        ],
+    });
+
+    const stepRemovalAccess = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShedRemoval.id,
+            stepName: "Step 3: Access Options",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access the shed location?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepRemovalAccess.id, label: "Easy", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepRemovalAccess.id, label: "Moderate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepRemovalAccess.id, label: "Difficult (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // Classic Wooden Pent Shed
+    const prodShed = await prisma.product.create({
+        data: {
+            categoryId: catShedServices.id,
+            sku: "Wooden-Pent-Shed",
+            slug: "wooden-pent-shed",
+            title: "Classic Wooden Pent Shed",
+            description: "High-quality Scandinavian timber pent shed with felt roof.",
+            basePrice: 500.00,
+            vatRate: 20.00,
+            stockQuantity: 50,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepSize = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShed.id,
+            stepName: "Step 1: Choose Shed Size",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "shed_size",
+            helpText: "Select a standard size or enter custom dimensions below.",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepSize.id, label: "Standard 8x6 ft", value: "8x6", priceModifier: 0.00, optionValueFlag: "size_8x6" },
+            { stepId: stepSize.id, label: "Standard 10x8 ft (+£150.00)", value: "10x8", priceModifier: 150.00, optionValueFlag: "size_10x8" },
+            { stepId: stepSize.id, label: "Custom Dimensions (+£250.00)", value: "custom", priceModifier: 250.00, optionValueFlag: "size_custom" },
+        ],
+    });
+
+    await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShed.id,
+            stepName: "Step 1b: Enter Custom Dimensions (Optional)",
+            sortOrder: 2,
+            isMandatory: false,
+            fieldType: "text",
+            fieldKey: "custom_dimensions",
+            helpText: "Specify width x length in meters (e.g. 3.2 x 2.4).",
+            conditionalTriggerValue: "custom",
+        },
+    });
+
+    const stepBase = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShed.id,
+            stepName: "Step 2: Do you have an existing shed base?",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "existing_base",
+            helpText: "A solid, level base is required for shed construction.",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepBase.id, label: "Yes, I have an existing base", value: "yes", priceModifier: 0.00, optionValueFlag: "has_base" },
+            { stepId: stepBase.id, label: "No, I need a new base installed", value: "no", priceModifier: 0.00, optionValueFlag: "no_base_supplied" },
+        ],
+    });
+
+    const stepBaseUpsell = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodShed.id,
+            stepName: "Step 2b: Choose Base Installation Service",
+            sortOrder: 4,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "base_service",
+            helpText: "Select base installation options linked to our catalog.",
+            conditionalTriggerValue: "no",
+        },
+    });
+
+    await prisma.stepOption.create({
+        data: {
+            stepId: stepBaseUpsell.id,
+            productId: prodStoneBase.id,
+            priceModifier: 0.00,
+            optionValueFlag: "stone_base_option",
+            label: "Add Stone Base Installation (+£250.00)",
+            value: "stone_base",
         },
     });
 
     await prisma.workflowStep.create({
         data: {
-            workflowId: wfPicture.id,
-            label: "Number of Items",
+            parentProductId: prodShed.id,
+            stepName: "Step 3: Upload Site Photos",
+            sortOrder: 5,
+            isMandatory: true,
+            fieldType: "photo_upload",
+            fieldKey: "site_photos",
+            helpText: "Upload photos of the proposed build area and access path.",
+        },
+    });
+
+    // Virtual Bundle Complete Shed Package
+    const prodBundle = await prisma.product.create({
+        data: {
+            categoryId: catShedServices.id,
+            sku: "Shed-Bundle-Classic",
+            slug: "shed-bundle-classic",
+            title: "Complete Shed Package",
+            description: "Includes Pent Shed, Stone Base, and installation labor.",
+            basePrice: 900.00,
+            vatRate: 20.00,
+            stockQuantity: 20,
+            productType: "virtual_bundle",
+        },
+    });
+
+    await prisma.bundleComponent.createMany({
+        data: [
+            { bundleProductId: prodBundle.id, componentProductId: prodShed.id, quantity: 1 },
+            { bundleProductId: prodBundle.id, componentProductId: prodStoneBase.id, quantity: 1 },
+            { bundleProductId: prodBundle.id, componentProductId: prodLabor.id, quantity: 1 },
+        ],
+    });
+
+    // Add simple steps to virtual bundle to make it bookable through our checkout page check
+    const stepBundlePhotos = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodBundle.id,
+            stepName: "Step 1: Upload Site Photos",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "photo_upload",
+            fieldKey: "site_photos",
+            helpText: "Upload photos of the proposed build area and access path.",
+        },
+    });
+
+    const stepBundleAccess = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodBundle.id,
+            stepName: "Step 2: Access Options",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "access",
+            helpText: "How easy is it to access the shed installation location?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepBundleAccess.id, label: "Easy", value: "easy", priceModifier: 0, optionValueFlag: "access_easy" },
+            { stepId: stepBundleAccess.id, label: "Moderate", value: "moderate", priceModifier: 0, optionValueFlag: "access_moderate" },
+            { stepId: stepBundleAccess.id, label: "Difficult (15% Surcharge)", value: "difficult", priceModifier: 0, optionValueFlag: "access_difficult" },
+        ],
+    });
+
+    // --- 6. FLAT-PACK ASSEMBLY ---
+    const prodFlatPack = await prisma.product.create({
+        data: {
+            categoryId: catFlatPack.id,
+            sku: "FLAT-ASSEM-001",
+            slug: "flat-pack-assembly-product",
+            title: "Flat-Pack Assembly",
+            description: "We'll assemble your flat-pack furniture quickly and correctly. Wardrobes, desks, beds, shelving — you name it.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepFlatType = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFlatPack.id,
+            stepName: "Step 1: Item Type",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "item_type",
+            helpText: "What type of furniture needs assembling?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepFlatType.id, label: "Small (Shelving, Side Table, TV Unit)", value: "small", priceModifier: 35.00, optionValueFlag: "item_small" },
+            { stepId: stepFlatType.id, label: "Medium (Desk, Bookcase, Chest of Drawers)", value: "medium", priceModifier: 55.00, optionValueFlag: "item_medium" },
+            { stepId: stepFlatType.id, label: "Large (Wardrobe, Bed Frame)", value: "large", priceModifier: 85.00, optionValueFlag: "item_large" },
+            { stepId: stepFlatType.id, label: "Extra Large (PAX System, Fitted Wardrobe)", value: "xlarge", priceModifier: 120.00, optionValueFlag: "item_xl" },
+        ],
+    });
+
+    const stepFlatNum = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodFlatPack.id,
+            stepName: "Step 2: Number of Items",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "number",
+            fieldKey: "num_items",
+            helpText: "How many items need assembling?",
+            unit: "items",
+            validationRules: JSON.stringify({ min: 1, max: 10 }),
+        },
+    });
+
+    await prisma.stepOption.create({
+        data: {
+            stepId: stepFlatNum.id,
+            label: "Flat-Pack Items (multiplier active)",
+            value: "*",
+            priceModifier: 0.00, // item type modifier determines price
+            optionValueFlag: "flatpack_items_rate",
+        },
+    });
+
+    // --- 7. PICTURE & MIRROR HANGING ---
+    const prodPicture = await prisma.product.create({
+        data: {
+            categoryId: catPictureHanging.id,
+            sku: "PIC-MIR-001",
+            slug: "picture-mirror-hanging",
+            title: "Picture & Mirror Hanging",
+            description: "Professional wall mounting for pictures, mirrors, and wall art. Perfectly level, securely fixed, no mess.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepPicNum = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodPicture.id,
+            stepName: "Step 1: Number of Items",
+            sortOrder: 1,
+            isMandatory: true,
             fieldType: "number",
             fieldKey: "num_items",
             helpText: "How many pictures, mirrors or items need hanging?",
             unit: "items",
             validationRules: JSON.stringify({ min: 1, max: 20 }),
-            sortOrder: 1,
         },
     });
 
-    const stepItemWeight = await prisma.workflowStep.create({
+    await prisma.stepOption.create({
         data: {
-            workflowId: wfPicture.id,
-            label: "Heaviest Item",
+            stepId: stepPicNum.id,
+            label: "Picture Hanging (per item)",
+            value: "*",
+            priceModifier: 12.00,
+            optionValueFlag: "hanging_rate",
+        },
+    });
+
+    const stepPicWeight = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodPicture.id,
+            stepName: "Step 2: Heaviest Item",
+            sortOrder: 2,
+            isMandatory: true,
             fieldType: "select",
             fieldKey: "item_weight",
-            helpText:
-                "What's the heaviest item? Heavy items need special fixings.",
-            sortOrder: 2,
+            helpText: "What's the heaviest item? Heavy items need special fixings.",
         },
     });
 
     await prisma.stepOption.createMany({
         data: [
-            {
-                stepId: stepItemWeight.id,
-                label: "Light (small pictures, prints)",
-                value: "light",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepItemWeight.id,
-                label: "Medium (large pictures, small mirrors)",
-                value: "medium",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepItemWeight.id,
-                label: "Heavy (large mirrors, heavy art)",
-                value: "heavy",
-                sortOrder: 3,
-            },
+            { stepId: stepPicWeight.id, label: "Light (small pictures, prints)", value: "light", priceModifier: 0.00, optionValueFlag: "weight_light" },
+            { stepId: stepPicWeight.id, label: "Medium (large pictures, small mirrors)", value: "medium", priceModifier: 0.00, optionValueFlag: "weight_medium" },
+            { stepId: stepPicWeight.id, label: "Heavy (large mirrors, heavy art) (+£15.00 fixings)", value: "heavy", priceModifier: 15.00, optionValueFlag: "weight_heavy" },
         ],
     });
 
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfPicture.id,
-                ruleType: "per_unit",
-                fieldKey: "num_items",
-                rate: 12,
-                description: "£12 per item",
-            },
-            {
-                workflowId: wfPicture.id,
-                ruleType: "conditional",
-                fieldKey: "item_weight",
-                condition: JSON.stringify({
-                    field: "item_weight",
-                    value: "heavy",
-                }),
-                rate: 15,
-                description: "Heavy item fixings: +£15",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Picture & Mirror Hanging category");
-
-    // --- 8. GUTTERING ---
-    const catGutter = await prisma.category.create({
+    // --- 8. GENERAL DIY ---
+    const prodDiy = await prisma.product.create({
         data: {
-            name: "Guttering Services",
-            slug: "guttering",
-            description: "Gutter cleaning, washing, and minor repairs.",
-            icon: "guttering",
-            sortOrder: 8,
+            categoryId: catGeneralDiy.id,
+            sku: "DIY-GEN-001",
+            slug: "general-diy-product",
+            title: "General DIY & Repairs",
+            description: "From door hanging to sealant work, curtain rails to lock fitting. Tell us what you need and we'll give you an hourly rate.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
         },
     });
 
-    const prodGutter = await prisma.product.create({
+    const stepDiyHours = await prisma.workflowStep.create({
         data: {
-            categoryId: catGutter.id,
-            name: "Gutter Cleaning",
-            slug: "gutter-cleaning",
-            description:
-                "Professional gutter cleaning to prevent blockages and water damage. We clear all debris and flush the system.",
-            shortDescription: "Prevent blockages and water damage",
-            pricingType: "workflow",
+            parentProductId: prodDiy.id,
+            stepName: "Step 1: Estimated Hours",
             sortOrder: 1,
-        },
-    });
-
-    const wfGutter = await prisma.workflow.create({
-        data: {
-            productId: prodGutter.id,
-            name: "Gutter Cleaning Configuration",
-        },
-    });
-
-    const stepPropertyType = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfGutter.id,
-            label: "Property Type",
-            fieldType: "select",
-            fieldKey: "property_type",
-            helpText: "What type of property?",
-            sortOrder: 1,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepPropertyType.id,
-                label: "Terraced House",
-                value: "terraced",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepPropertyType.id,
-                label: "Semi-Detached",
-                value: "semi",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepPropertyType.id,
-                label: "Detached",
-                value: "detached",
-                sortOrder: 3,
-            },
-            {
-                stepId: stepPropertyType.id,
-                label: "Bungalow",
-                value: "bungalow",
-                sortOrder: 4,
-            },
-        ],
-    });
-
-    const stepStoreys = await prisma.workflowStep.create({
-        data: {
-            workflowId: wfGutter.id,
-            label: "Number of Storeys",
-            fieldType: "select",
-            fieldKey: "storeys",
-            helpText: "How many storeys does your property have?",
-            sortOrder: 2,
-        },
-    });
-
-    await prisma.stepOption.createMany({
-        data: [
-            {
-                stepId: stepStoreys.id,
-                label: "1 Storey (Bungalow)",
-                value: "1",
-                sortOrder: 1,
-            },
-            {
-                stepId: stepStoreys.id,
-                label: "2 Storeys",
-                value: "2",
-                sortOrder: 2,
-            },
-            {
-                stepId: stepStoreys.id,
-                label: "3 Storeys",
-                value: "3",
-                sortOrder: 3,
-            },
-        ],
-    });
-
-    await prisma.pricingRule.createMany({
-        data: [
-            {
-                workflowId: wfGutter.id,
-                ruleType: "conditional",
-                fieldKey: "property_type",
-                condition: JSON.stringify({
-                    field: "property_type",
-                    value: "terraced",
-                }),
-                rate: 65,
-                description: "Terraced: £65",
-            },
-            {
-                workflowId: wfGutter.id,
-                ruleType: "conditional",
-                fieldKey: "property_type",
-                condition: JSON.stringify({
-                    field: "property_type",
-                    value: "semi",
-                }),
-                rate: 85,
-                description: "Semi-detached: £85",
-            },
-            {
-                workflowId: wfGutter.id,
-                ruleType: "conditional",
-                fieldKey: "property_type",
-                condition: JSON.stringify({
-                    field: "property_type",
-                    value: "detached",
-                }),
-                rate: 120,
-                description: "Detached: £120",
-            },
-            {
-                workflowId: wfGutter.id,
-                ruleType: "conditional",
-                fieldKey: "property_type",
-                condition: JSON.stringify({
-                    field: "property_type",
-                    value: "bungalow",
-                }),
-                rate: 55,
-                description: "Bungalow: £55",
-            },
-            {
-                workflowId: wfGutter.id,
-                ruleType: "conditional",
-                fieldKey: "storeys",
-                condition: JSON.stringify({ field: "storeys", value: "3" }),
-                rate: 40,
-                description: "3 storey surcharge: +£40",
-            },
-        ],
-    });
-
-    console.log("  ✓ Created Guttering Services category");
-
-    // --- 9. GENERAL DIY ---
-    const catDIY = await prisma.category.create({
-        data: {
-            name: "General DIY",
-            slug: "general-diy",
-            description:
-                "Odd jobs, repairs and those tasks you never get round to.",
-            icon: "general-diy",
-            sortOrder: 9,
-        },
-    });
-
-    const prodDIY = await prisma.product.create({
-        data: {
-            categoryId: catDIY.id,
-            name: "General DIY & Repairs",
-            slug: "general-diy",
-            description:
-                "From door hanging to sealant work, curtain rails to lock fitting. Tell us what you need and we'll give you an hourly rate.",
-            shortDescription: "No job too small",
-            pricingType: "workflow",
-            sortOrder: 1,
-        },
-    });
-
-    const wfDIY = await prisma.workflow.create({
-        data: { productId: prodDIY.id, name: "General DIY Configuration" },
-    });
-
-    await prisma.workflowStep.create({
-        data: {
-            workflowId: wfDIY.id,
-            label: "Estimated Hours",
+            isMandatory: true,
             fieldType: "number",
             fieldKey: "estimated_hours",
-            helpText:
-                "How many hours do you think the job will take? Minimum 1 hour. We'll confirm the time when we see the job.",
+            helpText: "How many hours do you think the job will take? Minimum 1 hour. We'll confirm the time when we see the job.",
             unit: "hours",
             validationRules: JSON.stringify({ min: 1, max: 8 }),
-            sortOrder: 1,
+        },
+    });
+
+    await prisma.stepOption.create({
+        data: {
+            stepId: stepDiyHours.id,
+            label: "General DIY Labor (per hour)",
+            value: "*",
+            priceModifier: 35.00,
+            optionValueFlag: "diy_hourly_rate",
         },
     });
 
     await prisma.workflowStep.create({
         data: {
-            workflowId: wfDIY.id,
-            label: "Job Description",
+            parentProductId: prodDiy.id,
+            stepName: "Step 2: Job Description",
+            sortOrder: 2,
+            isMandatory: true,
             fieldType: "text",
             fieldKey: "job_description",
-            helpText:
-                "Briefly describe what you need doing so we can come prepared with the right tools.",
-            sortOrder: 2,
+            helpText: "Briefly describe what you need doing so we can come prepared with the right tools.",
         },
     });
 
-    await prisma.pricingRule.createMany({
+    // --- 9. TECH INSTALLATION ---
+    const prodTV = await prisma.product.create({
+        data: {
+            categoryId: catTechInstallation.id,
+            sku: "TECH-TV-001",
+            slug: "tv-wall-mount",
+            title: "TV Wall Mounting",
+            description: "Professional TV wall mounting with optional cable hiding. We supply the bracket or use yours.",
+            basePrice: 0.00,
+            vatRate: 20.00,
+            stockQuantity: 100,
+            productType: "workflow_parent",
+        },
+    });
+
+    const stepTVSize = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodTV.id,
+            stepName: "Step 1: TV Size",
+            sortOrder: 1,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "tv_size",
+            helpText: "What size is your TV?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
         data: [
-            {
-                workflowId: wfDIY.id,
-                ruleType: "per_unit",
-                fieldKey: "estimated_hours",
-                rate: 35,
-                description: "£35 per hour",
-            },
+            { stepId: stepTVSize.id, label: 'Up to 32" (£45.00)', value: "small", priceModifier: 45.00, optionValueFlag: "size_small" },
+            { stepId: stepTVSize.id, label: '33" – 55" (£65.00)', value: "medium", priceModifier: 65.00, optionValueFlag: "size_medium" },
+            { stepId: stepTVSize.id, label: '56" – 75" (£85.00)', value: "large", priceModifier: 85.00, optionValueFlag: "size_large" },
+            { stepId: stepTVSize.id, label: 'Over 75" (£110.00)', value: "xlarge", priceModifier: 110.00, optionValueFlag: "size_xl" },
         ],
     });
 
-    console.log("  ✓ Created General DIY category");
+    const stepTVWall = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodTV.id,
+            stepName: "Step 2: Wall Type",
+            sortOrder: 2,
+            isMandatory: true,
+            fieldType: "select",
+            fieldKey: "wall_type",
+            helpText: "What type of wall are you mounting on?",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepTVWall.id, label: "Brick / Concrete", value: "brick", priceModifier: 0.00, optionValueFlag: "wall_brick" },
+            { stepId: stepTVWall.id, label: "Plasterboard (Stud Wall) (+£20.00 special fixings)", value: "plasterboard", priceModifier: 20.00, optionValueFlag: "wall_plasterboard" },
+            { stepId: stepTVWall.id, label: "Not Sure", value: "unsure", priceModifier: 0.00, optionValueFlag: "wall_unsure" },
+        ],
+    });
+
+    const stepTVCables = await prisma.workflowStep.create({
+        data: {
+            parentProductId: prodTV.id,
+            stepName: "Step 3: Hide Cables?",
+            sortOrder: 3,
+            isMandatory: true,
+            fieldType: "boolean",
+            fieldKey: "hide_cables",
+            helpText: "We can route cables through the wall or use a cable cover for a clean finish.",
+        },
+    });
+
+    await prisma.stepOption.createMany({
+        data: [
+            { stepId: stepTVCables.id, label: "Yes, hide cables (+£25.00)", value: "true", priceModifier: 25.00, optionValueFlag: "cables_yes" },
+            { stepId: stepTVCables.id, label: "No, leave cables exposed", value: "false", priceModifier: 0.00, optionValueFlag: "cables_no" },
+        ],
+    });
+
+    console.log("  ✓ Configured all products, workflow steps, options, and bundle components");
 
     console.log("\n✅ Database seeded successfully!");
-    console.log(`   → 9 categories`);
-    console.log(`   → 10 products with workflows`);
-    console.log(`   → Admin: ${adminEmail}`);
 }
 
 main()

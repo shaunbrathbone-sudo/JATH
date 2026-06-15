@@ -3,11 +3,11 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
     try {
-        const groups = await prisma.serviceGroup.findMany({
-            where: { isActive: true },
+        const rootCategories = await prisma.category.findMany({
+            where: { parentId: null, isActive: true },
             orderBy: { sortOrder: "asc" },
             include: {
-                categories: {
+                children: {
                     where: { isActive: true },
                     orderBy: { sortOrder: "asc" },
                     select: {
@@ -18,7 +18,24 @@ export async function GET() {
                 },
             },
         });
-        return NextResponse.json(groups);
+
+        // Format return to match expected schema structure with service groups & subcategories
+        const formatted = rootCategories.map((g) => ({
+            id: String(g.id),
+            name: g.name,
+            slug: g.slug,
+            description: g.description,
+            icon: g.slug === "garden-buildings" ? "tree" : "home",
+            isActive: g.isActive,
+            sortOrder: g.sortOrder,
+            categories: g.children.map((c) => ({
+                id: String(c.id),
+                name: c.name,
+                slug: c.slug,
+            })),
+        }));
+
+        return NextResponse.json(formatted);
     } catch (error) {
         console.error("Failed to fetch categories:", error);
         return NextResponse.json(

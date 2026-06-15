@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import HeroImageManager from "@/components/admin/HeroImageManager";
 
 export default async function AdminHeroImagesPage() {
-    const categories = await prisma.category.findMany({
+    const categoriesDb = await prisma.category.findMany({
         where: { isActive: true },
         orderBy: { sortOrder: "asc" },
         select: {
@@ -22,6 +22,21 @@ export default async function AdminHeroImagesPage() {
             },
         },
     });
+
+    // Serialize category and heroImage IDs from number to string for component compatibility
+    const categories = categoriesDb.map((c) => ({
+        id: String(c.id),
+        name: c.name,
+        slug: c.slug,
+        imageUrl: c.imageUrl,
+        heroImages: c.heroImages.map((img) => ({
+            id: String(img.id),
+            imageUrl: img.imageUrl,
+            filename: img.filename,
+            isActive: img.isActive,
+            createdAt: img.createdAt,
+        })),
+    }));
 
     return (
         <div className="admin-page">

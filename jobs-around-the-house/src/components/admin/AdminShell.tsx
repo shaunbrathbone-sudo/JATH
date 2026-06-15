@@ -10,6 +10,7 @@ import {
     DollarSign,
     Folder,
     Image as ImageIcon,
+    FileText,
 } from "lucide-react";
 
 type AdminShellProps = {
@@ -47,6 +48,11 @@ const navItems = [
         label: "Hero Images",
         href: "/admin/hero-images",
         icon: <ImageIcon size={20} />,
+    },
+    {
+        label: "Legal T&Cs",
+        href: "/admin/legal",
+        icon: <FileText size={20} />,
     },
 ];
 

@@ -7,7 +7,7 @@ export default async function AdminPricingPage() {
     });
 
     const serialized = variables.map((v) => ({
-        id: v.id,
+        id: String(v.id),
         key: v.key,
         label: v.label,
         value: v.value,

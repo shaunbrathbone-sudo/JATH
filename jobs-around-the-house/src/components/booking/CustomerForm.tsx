@@ -64,6 +64,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             onChange={(e) =>
                                 update("firstName", e.target.value)
                             }
+                            autoComplete="given-name"
                             required
                         />
                     </div>
@@ -80,6 +81,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.lastName}
                             onChange={(e) => update("lastName", e.target.value)}
+                            autoComplete="family-name"
                             required
                         />
                     </div>
@@ -98,6 +100,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.email}
                             onChange={(e) => update("email", e.target.value)}
+                            autoComplete="email"
                             required
                         />
                     </div>
@@ -114,6 +117,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.phone}
                             onChange={(e) => update("phone", e.target.value)}
+                            autoComplete="tel"
                             placeholder="07xxx xxxxxx"
                         />
                     </div>
@@ -138,6 +142,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                         className="form-group__input"
                         value={data.addressLine1}
                         onChange={(e) => update("addressLine1", e.target.value)}
+                        autoComplete="address-line1"
                     />
                 </div>
                 <div className="form-group">
@@ -153,6 +158,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                         className="form-group__input"
                         value={data.addressLine2}
                         onChange={(e) => update("addressLine2", e.target.value)}
+                        autoComplete="address-line2"
                     />
                 </div>
                 <div className="customer-form__row">
@@ -169,6 +175,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.city}
                             onChange={(e) => update("city", e.target.value)}
+                            autoComplete="address-level2"
                             placeholder="Leicester"
                         />
                     </div>
@@ -185,6 +192,7 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.postcode}
                             onChange={(e) => update("postcode", e.target.value)}
+                            autoComplete="postal-code"
                             placeholder="LE1 1AA"
                         />
                     </div>

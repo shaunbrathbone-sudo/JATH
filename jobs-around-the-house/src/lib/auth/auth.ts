@@ -67,13 +67,22 @@ const verifySession = async (): Promise<VerifySessionResult> => {
 
         // Verify admin still exists
         const admin = await prisma.adminUser.findUnique({
-            where: { id: adminId },
+            where: { id: parseInt(adminId) || 0 },
             select: { id: true, email: true, name: true, role: true },
         });
 
         if (!admin) return { authenticated: false };
 
-        return { authenticated: true, adminId: admin.id, admin };
+        return {
+            authenticated: true,
+            adminId: String(admin.id),
+            admin: {
+                id: String(admin.id),
+                email: admin.email,
+                name: admin.name,
+                role: admin.role,
+            },
+        };
     } catch {
         return { authenticated: false };
     }
@@ -105,7 +114,7 @@ const validateCredentials = async (
     if (!valid) return null;
 
     return {
-        id: admin.id,
+        id: String(admin.id),
         email: admin.email,
         name: admin.name,
         role: admin.role,

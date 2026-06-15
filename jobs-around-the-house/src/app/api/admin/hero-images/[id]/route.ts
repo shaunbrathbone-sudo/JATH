@@ -11,6 +11,7 @@ export async function POST(
 ) {
     try {
         const { id: categoryId } = await params;
+        const parsedCategoryId = parseInt(categoryId) || 0;
         const formData = await request.formData();
         const file = formData.get("image") as File | null;
 
@@ -29,7 +30,7 @@ export async function POST(
         }
 
         const category = await prisma.category.findUnique({
-            where: { id: categoryId },
+            where: { id: parsedCategoryId },
             select: { slug: true },
         });
 
@@ -42,7 +43,7 @@ export async function POST(
 
         // Check if category already has 6 hero images
         const imageCount = await prisma.heroImage.count({
-            where: { categoryId },
+            where: { categoryId: parsedCategoryId },
         });
 
         if (imageCount >= 6) {
@@ -71,7 +72,7 @@ export async function POST(
         // Create new image and set as active
         const heroImage = await prisma.heroImage.create({
             data: {
-                categoryId,
+                categoryId: parsedCategoryId,
                 imageUrl,
                 filename: file.name,
                 isActive: true,
@@ -95,9 +96,10 @@ export async function DELETE(
 ) {
     try {
         const { id: imageId } = await params;
+        const parsedImageId = parseInt(imageId) || 0;
 
         const heroImage = await prisma.heroImage.findUnique({
-            where: { id: imageId },
+            where: { id: parsedImageId },
         });
 
         if (!heroImage) {
@@ -118,7 +120,7 @@ export async function DELETE(
 
         // Delete from DB
         await prisma.heroImage.delete({
-            where: { id: imageId },
+            where: { id: parsedImageId },
         });
 
         return NextResponse.json({ success: true });

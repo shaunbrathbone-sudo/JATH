@@ -30,5 +30,13 @@
         ".next/dev/types/**/*.ts",
         "**/*.mts"
     ],
-    "exclude": ["node_modules"]
+    "exclude": [
+        "node_modules",
+        "prisma/seed-existing-images.ts",
+        "prisma/seed-groups.ts",
+        "prisma/seed-tech.ts",
+        "prisma/set-hero-images.ts",
+        "prisma/migrate-hero-images.ts",
+        "scripts/**/*.ts"
+    ]
 }

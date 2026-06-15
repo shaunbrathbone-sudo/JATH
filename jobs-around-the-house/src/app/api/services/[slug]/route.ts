@@ -13,16 +13,10 @@ export async function GET(
             where: { slug, isActive: true },
             include: {
                 category: { select: { name: true, slug: true } },
-                workflows: {
-                    where: { isActive: true },
+                workflowSteps: {
+                    orderBy: { sortOrder: "asc" },
                     include: {
-                        steps: {
-                            orderBy: { sortOrder: "asc" },
-                            include: {
-                                options: { orderBy: { sortOrder: "asc" } },
-                            },
-                        },
-                        pricingRules: true,
+                        options: { orderBy: { sortOrder: "asc" } },
                     },
                 },
             },

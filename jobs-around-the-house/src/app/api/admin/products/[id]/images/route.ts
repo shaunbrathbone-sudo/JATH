@@ -11,6 +11,7 @@ export async function POST(
 ) {
     try {
         const { id: productId } = await params;
+        const parsedProductId = parseInt(productId) || 0;
         const formData = await request.formData();
         const file = formData.get("image") as File | null;
 
@@ -29,7 +30,7 @@ export async function POST(
         }
 
         const product = await prisma.product.findUnique({
-            where: { id: productId },
+            where: { id: parsedProductId },
             select: { slug: true },
         });
 
@@ -42,7 +43,7 @@ export async function POST(
 
         // Check if product already has 6 hero images
         const imageCount = await prisma.heroImage.count({
-            where: { productId },
+            where: { productId: parsedProductId },
         });
 
         if (imageCount >= 6) {
@@ -71,7 +72,7 @@ export async function POST(
         // Create new image and set as active
         const heroImage = await prisma.heroImage.create({
             data: {
-                productId,
+                productId: parsedProductId,
                 imageUrl,
                 filename: file.name,
                 isActive: true,

@@ -11,7 +11,7 @@ export default async function AdminProductImagesPage({ params }: Props) {
     const { id } = await params;
 
     const product = await prisma.product.findUnique({
-        where: { id },
+        where: { id: parseInt(id) || 0 },
         include: {
             heroImages: {
                 orderBy: { createdAt: "desc" },
@@ -23,10 +23,19 @@ export default async function AdminProductImagesPage({ params }: Props) {
         notFound();
     }
 
-    // Ensure heroImages array is passed and imageUrl is normalized
+    // Map database Product model properties to UI component structures
     const productData = {
-        ...product,
-        imageUrl: product.imageUrl || null,
+        id: String(product.id),
+        name: product.title,
+        slug: product.slug,
+        imageUrl: product.imageUrl,
+        heroImages: product.heroImages.map((img) => ({
+            id: String(img.id),
+            imageUrl: img.imageUrl,
+            filename: img.filename,
+            isActive: img.isActive,
+            createdAt: img.createdAt,
+        })),
     };
 
     return (
@@ -41,10 +50,10 @@ export default async function AdminProductImagesPage({ params }: Props) {
                     </Link>
                 </div>
                 <h1 className="admin-page__title">
-                    Manage Images for {product.name}
+                    Manage Images for {product.title}
                 </h1>
                 <p className="admin-page__subtitle">
-                    Upload up to 6 images to appear on the {product.name}{" "}
+                    Upload up to 6 images to appear on the {product.title}{" "}
                     booking page. Set one as the Featured image.
                 </p>
             </div>

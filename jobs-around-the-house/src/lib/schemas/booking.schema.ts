@@ -2,7 +2,7 @@ import { z } from "zod";
 import { customerSchema } from "./customer.schema";
 
 const bookingItemSchema = z.object({
-    productId: z.string(),
+    productId: z.union([z.string(), z.number()]).transform((v) => Number(v)),
     calculatedPrice: z.number().nonnegative(),
     wasteCost: z.number().nonnegative(),
     quantity: z.number().int().positive(),
@@ -23,6 +23,7 @@ const bookingSchema = z.object({
     preferredDate: z.string().optional().or(z.literal("")),
     preferredTime: z.string().optional().or(z.literal("")),
     notes: z.string().optional().or(z.literal("")),
+    redeemPoints: z.number().int().nonnegative().optional(),
 });
 
 export { bookingItemSchema, bookingSchema };

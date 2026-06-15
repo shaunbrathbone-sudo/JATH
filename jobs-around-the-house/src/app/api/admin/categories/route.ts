@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
                 name: name.trim(),
                 slug,
                 description: description?.trim() || null,
-                icon: icon?.trim() || null,
-                groupId: groupId || null,
+                parentId: groupId ? parseInt(groupId) : null,
                 sortOrder: sortOrder ?? 0,
             },
         });
