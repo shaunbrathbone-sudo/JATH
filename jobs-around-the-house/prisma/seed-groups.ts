@@ -45,12 +45,12 @@ const groups = [
 
 async function main() {
     for (const g of groups) {
-        const group = await prisma.serviceGroup.create({
+        const group = await prisma.category.create({
             data: {
                 name: g.name,
                 slug: g.slug,
                 description: g.description,
-                icon: g.icon,
+                parentId: null,
                 sortOrder: g.sortOrder,
             },
         });
@@ -61,7 +61,7 @@ async function main() {
             if (cat) {
                 await prisma.category.update({
                     where: { id: cat.id },
-                    data: { groupId: group.id },
+                    data: { parentId: group.id },
                 });
                 console.log(`  → Assigned: ${cat.name}`);
             } else {

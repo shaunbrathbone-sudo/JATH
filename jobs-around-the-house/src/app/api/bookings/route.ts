@@ -9,6 +9,7 @@ export const POST = async (request: Request) => {
         const body = await request.json();
         const parsed = bookingSchema.safeParse(body);
         if (!parsed.success) {
+            console.error("Zod Validation Fail in /api/bookings:", JSON.stringify(parsed.error.format(), null, 2));
             return NextResponse.json(
                 {
                     error:

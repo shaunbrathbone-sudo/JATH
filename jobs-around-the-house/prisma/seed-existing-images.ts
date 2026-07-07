@@ -85,7 +85,7 @@ async function main() {
                     isActive: true,
                 },
             });
-            console.log(`Created hero image for ${product.name}`);
+            console.log(`Created hero image for ${product.title}`);
         }
     }
 

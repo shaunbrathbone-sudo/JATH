@@ -19,11 +19,22 @@ type CustomerData = {
 type CustomerFormProps = {
     data: CustomerData;
     onChange: (data: CustomerData) => void;
+    showErrors?: boolean;
 };
 
-const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
+const CustomerForm = ({ data, onChange, showErrors = false }: CustomerFormProps) => {
+    const [touched, setTouched] = React.useState({
+        firstName: false,
+        lastName: false,
+        email: false,
+    });
+
     const update = (field: keyof CustomerData, value: string) => {
         onChange({ ...data, [field]: value });
+    };
+
+    const handleBlur = (field: "firstName" | "lastName" | "email") => {
+        setTouched((prev) => ({ ...prev, [field]: true }));
     };
 
     // Generate date options (next 30 days, excluding Sundays)
@@ -64,9 +75,16 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             onChange={(e) =>
                                 update("firstName", e.target.value)
                             }
+                            onBlur={() => handleBlur("firstName")}
                             autoComplete="given-name"
                             required
+                            style={(touched.firstName || showErrors) && data.firstName.trim() === "" ? { borderColor: "var(--color-error)", outlineColor: "var(--color-error)" } : undefined}
                         />
+                        {(touched.firstName || showErrors) && data.firstName.trim() === "" && (
+                            <span className="form-group__error" style={{ color: "var(--color-error)", fontSize: "var(--font-size-xs)", marginTop: "0.25rem", display: "block" }}>
+                                First name is required.
+                            </span>
+                        )}
                     </div>
                     <div className="form-group">
                         <label
@@ -81,9 +99,16 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                             className="form-group__input"
                             value={data.lastName}
                             onChange={(e) => update("lastName", e.target.value)}
+                            onBlur={() => handleBlur("lastName")}
                             autoComplete="family-name"
                             required
+                            style={(touched.lastName || showErrors) && data.lastName.trim() === "" ? { borderColor: "var(--color-error)", outlineColor: "var(--color-error)" } : undefined}
                         />
+                        {(touched.lastName || showErrors) && data.lastName.trim() === "" && (
+                            <span className="form-group__error" style={{ color: "var(--color-error)", fontSize: "var(--font-size-xs)", marginTop: "0.25rem", display: "block" }}>
+                                Last name is required.
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="customer-form__row">
@@ -94,15 +119,33 @@ const CustomerForm = ({ data, onChange }: CustomerFormProps) => {
                         >
                             Email Address
                         </label>
-                        <input
-                            type="email"
-                            id="cf-email"
-                            className="form-group__input"
-                            value={data.email}
-                            onChange={(e) => update("email", e.target.value)}
-                            autoComplete="email"
-                            required
-                        />
+                        {(() => {
+                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                            const isEmailEmpty = data.email.trim() === "";
+                            const isEmailFormatValid = emailRegex.test(data.email.trim());
+                            const showEmailError = ((touched.email || showErrors) && isEmailEmpty) || (!isEmailEmpty && !isEmailFormatValid);
+                            const emailErrorMsg = isEmailEmpty ? "Email address is required." : "Please enter a valid email address (e.g. name@example.com).";
+                            return (
+                                <>
+                                    <input
+                                        type="email"
+                                        id="cf-email"
+                                        className="form-group__input"
+                                        value={data.email}
+                                        onChange={(e) => update("email", e.target.value)}
+                                        onBlur={() => handleBlur("email")}
+                                        autoComplete="email"
+                                        required
+                                        style={showEmailError ? { borderColor: "var(--color-error)", outlineColor: "var(--color-error)" } : undefined}
+                                    />
+                                    {showEmailError && (
+                                        <span className="form-group__error" style={{ color: "var(--color-error)", fontSize: "var(--font-size-xs)", marginTop: "0.25rem", display: "block" }}>
+                                            {emailErrorMsg}
+                                        </span>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </div>
                     <div className="form-group">
                         <label

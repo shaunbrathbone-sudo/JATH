@@ -47,6 +47,7 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
     );
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showCustomerErrors, setShowCustomerErrors] = useState(false);
 
     // Filter visible steps based on showIf conditions (branching trigger values)
     const visibleSteps = workflow.steps.filter((step) => {
@@ -89,9 +90,10 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
 
     useEffect(() => {
         const fetchPoints = async () => {
-            if (customerData.email && customerData.email.includes("@")) {
+            const trimmedEmail = customerData.email.trim();
+            if (trimmedEmail && trimmedEmail.includes("@")) {
                 try {
-                    const res = await api.get(`/customers/points?email=${encodeURIComponent(customerData.email)}`);
+                    const res = await api.get(`/customers/points?email=${encodeURIComponent(trimmedEmail)}`);
                     setAvailablePoints(res.data.points || 0);
                     setRedemptionRate(res.data.redemptionRate ?? 0.01);
                 } catch {
@@ -120,11 +122,12 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
     };
 
     const isCustomerValid = () => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return (
             customerData.firstName.trim() !== "" &&
             customerData.lastName.trim() !== "" &&
             customerData.email.trim() !== "" &&
-            customerData.email.includes("@")
+            emailRegex.test(customerData.email.trim())
         );
     };
 
@@ -136,14 +139,14 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
         try {
             const res = await api.post("/bookings", {
                 customer: {
-                    email: customerData.email,
-                    firstName: customerData.firstName,
-                    lastName: customerData.lastName,
-                    phone: customerData.phone || undefined,
-                    addressLine1: customerData.addressLine1 || undefined,
-                    addressLine2: customerData.addressLine2 || undefined,
-                    city: customerData.city || undefined,
-                    postcode: customerData.postcode || undefined,
+                    email: customerData.email.trim(),
+                    firstName: customerData.firstName.trim(),
+                    lastName: customerData.lastName.trim(),
+                    phone: customerData.phone.trim() || undefined,
+                    addressLine1: customerData.addressLine1.trim() || undefined,
+                    addressLine2: customerData.addressLine2.trim() || undefined,
+                    city: customerData.city.trim() || undefined,
+                    postcode: customerData.postcode.trim() || undefined,
                 },
                 items: [
                     {
@@ -155,7 +158,7 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
                         configs: Object.entries(answers).map(
                             ([fieldKey, value]) => ({
                                 fieldKey,
-                                value: String(value),
+                                fieldValue: String(value),
                             }),
                         ),
                     },
@@ -187,7 +190,8 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
             case 1:
                 return true;
             case 2:
-                return isCustomerValid();
+                // Always return true to allow clicking Confirm Booking, triggering validation warnings on submit attempt.
+                return true;
             default:
                 return false;
         }
@@ -195,6 +199,10 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
 
     const nextStep = () => {
         if (currentStep === 2) {
+            if (!isCustomerValid()) {
+                setShowCustomerErrors(true);
+                return;
+            }
             handleSubmitBooking();
         } else {
             setCurrentStep((s) => Math.min(s + 1, 3));
@@ -203,6 +211,7 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
     };
 
     const prevStep = () => {
+        setShowCustomerErrors(false);
         setCurrentStep((s) => Math.max(s - 1, 0));
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -540,6 +549,7 @@ const BookingWizard = ({ product, workflow, inStock = true }: BookingWizardProps
                                 <CustomerForm
                                     data={customerData}
                                     onChange={setCustomerData}
+                                    showErrors={showCustomerErrors}
                                 />
 
                                 {availablePoints > 0 && (

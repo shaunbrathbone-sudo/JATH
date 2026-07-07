@@ -28,7 +28,7 @@ const BookingConfirmation = ({ booking }: BookingConfirmationProps) => {
                         Booking Reference
                     </span>
                     <span className="confirmation__ref">
-                        {booking.id.slice(0, 8).toUpperCase()}
+                        INV-{String(booking.id).padStart(6, "0")}
                     </span>
                 </div>
 
